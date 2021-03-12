@@ -16,6 +16,7 @@ GED_DIR=/home/dblyon/global_enrichment_v11
 UWSGI_EXE=/home/dblyon/anaconda3/envs/agotool/bin/uwsgi
 
 echo "--- running script cron_weekly_Digamma_update_aGOtool_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
+
 ### decompress files
 echo "\n### unpacking tar.gz files\n"
 cd "$TABLES_DIR_Digamma" || exit
@@ -34,16 +35,32 @@ cd "$TESTING_DIR" || exit
 "$PYTEST_EXE" test_flatfiles.py
 check_exit_status
 
-### restart uWSGI
-printf "\n restart uWSGI and PyTest \n"
+### start a uWSGI testing app (additional sanity check, since switching back to chain-reloading)
+printf "\n restart uWSGI and PyTest REST API \n"
 cd "$APP_DIR" || exit
-"$UWSGI_EXE" vassal_agotool_STRING.ini
+"$UWSGI_EXE" pytest_agotool_STRING.ini &
+sleep 4m
+### test API
+printf "\n PyTest REST API \n"
+cd "$TESTING_DIR" || exit
+"$PYTEST_EXE" test_API_sanity.py --url testing
+check_exit_status
+## shutdown uWSGI flask app
+cd "$APP_DIR" || exit
+echo q > pytest.fifo
+check_exit_status
+
+### restart uWSGI
+printf "\n restart uWSGI production \n"
+cd "$APP_DIR" || exit
+#"$UWSGI_EXE" vassal_agotool_STRING.ini
+echo c > ago_STRING_vassal.fifo
 sleep 4m
 
 ## test API
 printf "\n PyTest REST API \n"
 cd "$TESTING_DIR" || exit
-"$PYTEST_EXE" test_API_sanity.py
+"$PYTEST_EXE" test_API_sanity.py --url production
 check_exit_status
 
 printf " --- done --- "

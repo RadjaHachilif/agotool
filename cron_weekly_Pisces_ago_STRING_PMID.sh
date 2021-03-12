@@ -17,7 +17,7 @@ UWSGI_EXE=/home/dblyon/anaconda3/envs/agotoolv2/bin/uwsgi
 echo "--- running script cron_weekly_Pisces_update_aGOtool_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
 
 ### decompress files
-echo "\n### unpacking tar.gz files\n"
+printf "\n ### unpacking tar.gz files \n"
 cd "$TABLES_DIR" || exit
 tar --overwrite -xvzf "$TABLES_DIR"/aGOtool_PMID_pickle_current.tar.gz
 check_exit_status
@@ -33,20 +33,38 @@ cd "$TESTING_DIR" || exit
 "$PYTEST_EXE" test_flatfiles.py
 check_exit_status
 
-### restart uWSGI
+### start a uWSGI testing app (additional sanity check, since switching back to chain-reloading)
 printf "\n restart uWSGI and PyTest \n"
 cd "$APP_DIR" || exit
-"$UWSGI_EXE" vassal_agotool_STRING.ini
+"$UWSGI_EXE" pytest_agotool_STRING.ini &
+sleep 4m
+### test API
+printf "\n PyTest REST API \n"
+cd "$TESTING_DIR" || exit
+"$PYTEST_EXE" test_API_sanity.py --url testing
+check_exit_status
+## shutdown uWSGI flask app
+cd "$APP_DIR" || exit
+echo q > pytest.fifo
+check_exit_status
+
+### restart uWSGI production app
+printf "\n restart uWSGI and PyTest \n"
+cd "$APP_DIR" || exit
+# zerg-mode
+#"$UWSGI_EXE" vassal_agotool_STRING.ini
+# chain-reloading
+echo c > ago_STRING_vassal.fifo
 sleep 4m
 
 ## test API
 printf "\n PyTest REST API \n"
 cd "$TESTING_DIR" || exit
-"$PYTEST_EXE" test_API_sanity.py
+"$PYTEST_EXE" test_API_sanity.py --url production
 check_exit_status
 
 ### push files to Digamma
-printf "\n rsync push files from Pisces to Digamma"
+printf "\n rsync push files from Pisces to Digamma \n"
 rsync -av "$TABLES_DIR"/aGOtool_PMID_pickle_current.tar.gz dblyon@digamma.embl.de:"$TABLES_DIR_Digamma"/aGOtool_PMID_pickle_current.tar.gz
 rsync -av "$GED_DIR"/"$TAR_GED_ALL_CURRENT" dblyon@digamma.embl.de:"$GED_DIR"/"$TAR_GED_ALL_CURRENT"
 
@@ -54,4 +72,4 @@ echo "now attempting to run update script on Digamma cron_weekly_Digamma_update_
 ssh dblyon@digamma.embl.de '/home/dblyon/agotool/cron_weekly_Digamma_ago_STRING_PMID.sh &> /home/dblyon/agotool/data/logs/log_updates.txt & disown'
 check_exit_status
 
-printf " --- done --- "
+printf " --- done --- \n "
