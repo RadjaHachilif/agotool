@@ -8,6 +8,7 @@ global_enrichment_data_current=global_enrichment_data_current.tar.gz
 populate_classification_schema_current=populate_classification_schema_current.sql.gz
 TAR_GED_ALL_CURRENT=GED_all_current.tar
 TAR_GED_ALL_BAK=bak_GED_all_$(date +"%Y_%m_%d_%I_%M_%p").tar
+<<<<<<< HEAD
 GED_DIR=/mnt/mnemo5/rhachilif/global_enrichment_v11
 APP_DIR=/mnt/mnemo5/rhachilif/ago_STRING/agotool/app
 PYTHON_DIR=/mnt/mnemo5/rhachilif/ago_STRING/agotool/app/python
@@ -16,6 +17,17 @@ SNAKEMAKE_EXE=/mnt/mnemo5/rhachilif/anaconda3/envs/agotool/bin/snakemake
 PYTEST_EXE=/mnt/mnemo5/rhachilif/anaconda3/envs/agotool/bin/pytest
 UWSGI_EXE=/mnt/mnemo5/rhachilif/anaconda3/envs/agotool/bin/uwsgi
 TESTING_DIR=/mnt/mnemo5/rhachilif/ago_STRING/agotool/app/python/testing/sanity
+=======
+GED_DIR=/home/dblyon/global_enrichment_v11
+APP_DIR=/home/dblyon/agotool_PMID_autoupdate/agotool/app
+PYTHON_DIR=/home/dblyon/agotool_PMID_autoupdate/agotool/app/python
+TABLES_DIR=/home/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables
+TABLES_DIR_PISCES=/home/dblyon/PMID_autoupdate/agotool/data/PostgreSQL/tables
+SNAKEMAKE_EXE=/mnt/mnemo4/dblyon/install/anaconda3/envs/cron/bin/snakemake
+PYTEST_EXE=/mnt/mnemo4/dblyon/install/anaconda3/envs/cron/bin/pytest
+UWSGI_EXE=/mnt/mnemo4/dblyon/install/anaconda3/envs/cron/bin/uwsgi
+TESTING_DIR=/home/dblyon/agotool_PMID_autoupdate/agotool/app/python/testing/sanity
+>>>>>>> b4f3022146ab586b6aed74efb3031fd223469fe5
 
 echo "--- Cronjob starting "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
 printf "\n ### run snakemake pipeline \n"
@@ -29,7 +41,7 @@ cd "$TESTING_DIR" || exit
 "$PYTEST_EXE" test_flatfiles.py
 check_exit_status
 
-### start uWSGI and PyTest (agotool not running by default)
+### start uWSGI and PyTest (agotool not running by default on Phobos)
 printf "\n start uWSGI and PyTest \n"
 cd "$APP_DIR" || exit
 "$UWSGI_EXE" pytest_agotool_STRING.ini &
@@ -38,7 +50,7 @@ sleep 4m
 ## test API
 printf "\n PyTest REST API \n"
 cd "$TESTING_DIR" || exit
-"$PYTEST_EXE" test_API_sanity.py
+"$PYTEST_EXE" test_API_sanity.py --url testing
 # -p no:cacheprovider
 check_exit_status
 
@@ -63,6 +75,7 @@ check_exit_status
 rsync -av "$TAR_GED_ALL_CURRENT" "$TAR_GED_ALL_BAK"
 check_exit_status
 
+<<<<<<< HEAD
 #### copy files to production servers
 #printf "\n### copy files to Aquarius (production server)\n"
 #### San --> does pull instead of push via cronjob, data on Aquarius
@@ -75,9 +88,16 @@ check_exit_status
 printf "\n### copy files to Pisces (production server)\n"
 ### Pisces
 rsync -av "$TABLES_DIR"/"$TAR_CURRENT" rhachilif@pisces.meringlab.org:/mnt/mnemo5/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables/"$TAR_FILE_NAME"
+=======
+#### Production server, decompress files and restart service
+printf "\n### copy files to Pisces\n"
+### copy files
+rsync -av "$TABLES_DIR"/"$TAR_CURRENT" dblyon@pisces.meringlab.org:"$TABLES_DIR_PISCES"/"$TAR_CURRENT"
+>>>>>>> b4f3022146ab586b6aed74efb3031fd223469fe5
 check_exit_status
 rsync -av "$TABLES_DIR"/"$TAR_GED_ALL_CURRENT" rhachilif@pisces.meringlab.org:"$GED_DIR"/"$TAR_GED_ALL_CURRENT"
 check_exit_status
+<<<<<<< HEAD
 
 #### Production server, decompress files and restart service
 #### Aquarius
@@ -87,52 +107,11 @@ check_exit_status
 ### Pisces
 echo "run script on Pisces production server cron_weekly_Pisces_ago_STRING_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
 ssh rhachilif@pisces.meringlab.org '/mnt/mnemo5/rhachilif/ago_STRING/agotool/cron_weekly_Pisces_ago_STRING_PMID.sh &>> /mnt/mnemo5/rhachilif/ago_STRING/agotool/data/logs/log_updates.txt & disown'
+=======
+### run update
+echo "run script on Pisces cron_weekly_Pisces_ago_STRING_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
+ssh dblyon@pisces.meringlab.org '/home/dblyon/PMID_autoupdate/agotool/cron_weekly_Pisces_ago_STRING_PMID.sh &>> /home/dblyon/PMID_autoupdate/agotool/data/logs/log_updates.txt & disown'
+>>>>>>> b4f3022146ab586b6aed74efb3031fd223469fe5
 check_exit_status
-printf "\n--- finished Cronjob ---\n"
-############################################################
-### Overview
-# cronjob on Phobos
-# rsync files to Aquarius (only for Gitlab) and Pisces
-# run update script on Aquarius (only for Gitlab) and Pisces
-# Pisces script will push data to Digamma and run update script (if tests pass)
 
-#I've set up things on Digamma. They should work as expected in the exact same way as on San (port 10114).Quick check you can do on Pisces or on Digammacurl "localhost:10114/status" --> returns json of when files were last updated and when the app was last instantiated.
-#The updated Global Enrichment files are here (same location as on San): /home/dblyon/global_enrichment_v11
-#
-#Generally, the update process works as follows:Weekly Cronjob on Phobos: snakemake pipeline to produce new filestest (flat files and REST API)push new files to Piscesssh to Pisces and run script on Pisces to updatePisces update script:decompress filesrestart app and test (flat files and REST API)push new files to Digammassh to Digamma and run script on Digamma to updateDigamma update script:decompress filesrestart app and test (flat files and REST API)
-#Pisces is connected to GitLab which runs tests on a daily basis to check the REST API and notifies me via email should something fail. Additional tests are triggered via GitHub hooks (changing code in the GitHub repo will trigger tests). 
-#
-#Update schedule and git branchesaGOtool for STRING is on the "PMID_autoupdate" branch (updates PMIDs every week)https://github.com/dblyon/agotool/tree/PMID_autoupdate
-#curl "localhost:10114/status" # on Pisces
-#while aGOtool.org is on the "master" branch. (this is the UniProt version that updates all resources every month)https://github.com/dblyon/agotool/tree/master
-#curl "localhost:5911/status" # on Pisces
-
-
-
-############################################################
-##### Cronjob OVERVIEW
-
-### Crontab Atlas
-## at 01:01 (1 AM) 1st day of every month
-# 1 1 1 * * /mnt/mnemo5/dblyon/agotool/cronjob_monthly_Atlas.sh >> /mnt/mnemo5/dblyon/agotool/log_cron_monthly_snakemake.txt 2>&1
-## at 20:01 (8 PM) every Sunday
-# 1 20 * * 0 /mnt/mnemo5/dblyon/agotool_PMID_autoupdate/agotool/cron_weekly_Phobos_ago_STRING_PMID.sh >> /mnt/mnemo5/dblyon/agotool_PMID_autoupdate/agotool/log_cron_weekly_snakemake.txt 2>&1
-
-### Crontab San
-## at 01:01 (1 PM) every Monday
-# 1 13 * * 1 /home/dblyon/PMID_autoupdate/agotool/cron_weekly_San_ago_STRING_PMID.sh >> /home/dblyon/PMID_autoupdate/agotool/data/logs/log_cron_weekly_San_update_aGOtool_PMID.txt 2>&1
-
-### GitLab.com
-## at 07:01 (7 AM) every Monday
-# 1 7 * * 1 Weekly Monday morning schedule for aGOtool PMID autoupdate --> PMID_autoupdate branch
-
-### Cheat Sheet
-#* * * * * command to be executed
-#- - - - -
-#| | | | |
-#| | | | ----- Day of week (0 - 7) (Sunday=0 or 7)
-#| | | ------- Month (1 - 12)
-#| | --------- Day of month (1 - 31)
-#| ----------- Hour (0 - 23)
-#------------- Minute (0 - 59)
-############################################################
+printf "\n --- finished Cronjob --- \n"
