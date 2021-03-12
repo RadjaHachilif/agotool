@@ -32,7 +32,7 @@ def create_DF_2_compare_global_enrichment(df_GE):
         .terms_descriptions.tsv
         .terms_children.tsv
     """
-    if HOSTNAME not in {"pisces", "san.embl.de", "aquarius.meringlab.org", "phobos", 'digamma.embl.de'}:
+    if HOSTNAME not in {"pisces", "san.embl.de", "aquarius.meringlab.org", "phobos", "deimos", 'digamma.embl.de'}:
         print("HOSTNAME {} not recognized".format(HOSTNAME))
         raise StopIteration
         return pd.DataFrame()
@@ -41,6 +41,8 @@ def create_DF_2_compare_global_enrichment(df_GE):
             GLOBAL_ENRICHMENT_DIR = r"/san/DB/dblyon/global_enrichment_v11"
         elif HOSTNAME == "phobos":
             GLOBAL_ENRICHMENT_DIR = r"/home/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables"
+        elif HOSTNAME == "deimos":
+            GLOBAL_ENRICHMENT_DIR = r"/mnt/mnemo5/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables"
         elif HOSTNAME == "digamma.embl.de":
             GLOBAL_ENRICHMENT_DIR = r"/home/dblyon/global_enrichment_v11"
         else:
