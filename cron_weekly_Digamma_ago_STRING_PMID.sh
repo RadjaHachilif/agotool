@@ -5,15 +5,15 @@
 check_exit_status () {
   if [ ! $? = 0 ]; then exit; fi
 }
-TABLES_DIR_Aquarius=/home/dblyon/PMID_autoupdate/agotool/data/PostgreSQL/tables
-TABLES_DIR_Digamma=/home/dblyon/agotool/data/PostgreSQL/tables
-APP_DIR=/home/dblyon/agotool/app
-PYTEST_EXE=/home/dblyon/anaconda3/envs/agotool/bin/pytest
-TESTING_DIR=/home/dblyon/agotool/app/python/testing/sanity
+TABLES_DIR_Aquarius=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
+TABLES_DIR_Digamma=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
+APP_DIR=/home/rhachilif/ago_STRING/agotool/app
+PYTEST_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/pytest
+TESTING_DIR=/home/rhachilif/ago_STRING/agotool/app/python/testing/sanity
 TAR_GED_ALL_CURRENT=GED_all_current.tar
 global_enrichment_data_current=global_enrichment_data_current.tar.gz
-GED_DIR=/home/dblyon/global_enrichment_v11
-UWSGI_EXE=/home/dblyon/anaconda3/envs/agotool/bin/uwsgi
+GED_DIR=/home/rhachilif/global_enrichment_v11
+UWSGI_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/uwsgi
 
 echo "--- running script cron_weekly_Digamma_update_aGOtool_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
 
