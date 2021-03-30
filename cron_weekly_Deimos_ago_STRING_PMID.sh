@@ -9,14 +9,14 @@ populate_classification_schema_current=populate_classification_schema_current.sq
 TAR_GED_ALL_CURRENT=GED_all_current.tar
 TAR_GED_ALL_BAK=bak_GED_all_$(date +"%Y_%m_%d_%I_%M_%p").tar
 GED_DIR=/home/rhachilif/global_enrichment_v11
-APP_DIR=/home/rhachilif/ago_STRING/agotool/app
-PYTHON_DIR=/home/rhachilif/ago_STRING/agotool/app/python
-TABLES_DIR=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
-TABLES_DIR_PISCES=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
+APP_DIR=/home/rhachilif/agotool/app
+PYTHON_DIR=/home/rhachilif/agotool/app/python
+TABLES_DIR=/home/rhachilif/agotool/data/PostgreSQL/tables
+TABLES_DIR_PISCES=/home/rhachilif/agotool/data/PostgreSQL/tables
 SNAKEMAKE_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/snakemake
 PYTEST_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/pytest
 UWSGI_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/uwsgi
-TESTING_DIR=/home/rhachilif/ago_STRING/agotool/app/python/testing/sanity
+TESTING_DIR=/home/rhachilif/agotool/app/python/testing/sanity
 
 echo "--- Cronjob starting "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
 printf "\n ### run snakemake pipeline \n"
@@ -73,7 +73,7 @@ rsync -Pav -e "ssh -i /home/rhachilif/.ssh/id_rsa_digamma" "$TABLES_DIR"/"$TAR_G
 check_exit_status
 ### run update
 echo "run script on Digamma cron_weekly_Digamma_ago_STRING_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
-ssh digamma '/home/rhachilif/ago_STRING/agotool/cron_weekly_Digamma_ago_STRING_PMID.sh &>> /home/rhachilif/ago_STRING/agotool/data/logs/log_updates.txt & disown'
+ssh digamma '/home/rhachilif/agotool/cron_weekly_Digamma_ago_STRING_PMID.sh &>> /home/rhachilif/agotool/data/logs/log_updates.txt & disown'
 check_exit_status
 
 printf "\n --- finished Cronjob --- \n"
