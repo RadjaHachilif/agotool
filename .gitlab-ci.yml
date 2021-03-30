@@ -4,12 +4,12 @@ stages:
 
 variables:
   PYTHON: "/home/gitlab-runner/anaconda3/envs/snake/bin/python"
-  PYTEST: "/home/dblyon/anaconda3/envs/agotool/bin/pytest"
-  APP_DIR: "/home/dblyon/PMID_autoupdate/agotool/app"
+  PYTEST: "/home/rhachilif/anaconda3/envs/agotool/bin/pytest"
+  APP_DIR: "/home/rhachilif/PMID_autoupdate/agotool/app"
 
 before_script:
     - export DATE=$(date +"%Y_%m_%d_%I_%M_%p")
-    - export TAR_FILE_NAME="/home/dblyon/PMID_autoupdate/agotool/data/PostgreSQL/tables/aGOtool_PMID_pickle_current.tar.gz"
+    - export TAR_FILE_NAME="/home/rhachilif/PMID_autoupdate/agotool/data/PostgreSQL/tables/aGOtool_PMID_pickle_current.tar.gz"
 
 test_flat_files:
   stage: test_flat_files
@@ -22,7 +22,7 @@ test_flat_files:
     - ls -lah $TAR_FILE_NAME
     - $PYTHON -V
     - $PYTEST --version
-    - $PYTEST /home/dblyon/PMID_autoupdate/agotool/app/python/testing/sanity/test_flatfiles.py -p no:cacheprovider
+    - $PYTEST /home/rhachilif/PMID_autoupdate/agotool/app/python/testing/sanity/test_flatfiles.py -p no:cacheprovider
 
 test_API:
   stage: test_API
@@ -35,7 +35,7 @@ test_API:
     - ls -lah $TAR_FILE_NAME
     - $PYTHON -V
     - $PYTEST --version
-    - $PYTEST /home/dblyon/PMID_autoupdate/agotool/app/python/testing/sanity/test_API_sanity.py -p no:cacheprovider --url production
+    - $PYTEST /home/rhachilif/PMID_autoupdate/agotool/app/python/testing/sanity/test_API_sanity.py -p no:cacheprovider --url production
 
 job:on-schedule:
   only:
@@ -49,4 +49,4 @@ job:on-schedule:
     - echo $DATE
     - $PYTHON -V
     - $PYTEST --version
-    - $PYTEST /home/dblyon/PMID_autoupdate/agotool/app/python/testing/sanity/test_API_sanity.py -p no:cacheprovider --url production
+    - $PYTEST /home/rhachilif/PMID_autoupdate/agotool/app/python/testing/sanity/test_API_sanity.py -p no:cacheprovider --url production
