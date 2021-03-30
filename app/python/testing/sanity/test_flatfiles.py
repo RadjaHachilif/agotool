@@ -40,13 +40,13 @@ def create_DF_2_compare_global_enrichment(df_GE):
         if HOSTNAME == "san.embl.de":
             GLOBAL_ENRICHMENT_DIR = r"/san/DB/dblyon/global_enrichment_v11"
         elif HOSTNAME == "phobos":
-            GLOBAL_ENRICHMENT_DIR = r"/home/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables"
+            GLOBAL_ENRICHMENT_DIR = r"/home/rhachilif/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables"
         elif HOSTNAME == "deimos":
-            GLOBAL_ENRICHMENT_DIR = r"/mnt/mnemo5/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables"
+            GLOBAL_ENRICHMENT_DIR = r"/home/rhachilif/agotool/data/PostgreSQL/tables"
         elif HOSTNAME == "digamma.embl.de":
-            GLOBAL_ENRICHMENT_DIR = r"/home/dblyon/global_enrichment_v11"
+            GLOBAL_ENRICHMENT_DIR = r"/home/rhachilif/global_enrichment_v11"
         else:
-            GLOBAL_ENRICHMENT_DIR = r"/home/dblyon/global_enrichment_v11"
+            GLOBAL_ENRICHMENT_DIR = r"/home/rhachilif/global_enrichment_v11"
     fn_list, binary_list, size_list, num_lines_list, date_list, md5_list = [], [], [], [], [], []
     fn_list_2_search = [os.path.join(GLOBAL_ENRICHMENT_DIR, fn) for fn in os.listdir(GLOBAL_ENRICHMENT_DIR)]
     DIR = os.path.join(GLOBAL_ENRICHMENT_DIR, "global_enrichment_data")
@@ -224,8 +224,8 @@ def test_new_version_was_created_no_later_than_x_days_ago(days=7):
 ### create DF_file_dimensions_log.txt for the first time
 #import os, datetime, tools
 ## df_old = pd.read_csv(LOG_DF_FILE_DIMENSIONS, sep="\t")
-#LOG_DF_FILE_DIMENSIONS = r"/home/dblyon/agotool_PMID_autoupdate/agotool/data/logs/DF_file_dimensions_log.txt"
-#TABLES_DIR = r"/home/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables"
+#LOG_DF_FILE_DIMENSIONS = r"/home/rhachilif/agotool_PMID_autoupdate/agotool/data/logs/DF_file_dimensions_log.txt"
+#TABLES_DIR = r"/home/rhachilif/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables"
 #fn_list, binary_list, size_list, num_lines_list, date_list = [], [], [], [], []
 #stat = os.stat(LOG_DF_FILE_DIMENSIONS)
 #timestamp = stat.st_mtime
