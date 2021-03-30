@@ -5,11 +5,11 @@
 check_exit_status () {
   if [ ! $? = 0 ]; then exit; fi
 }
-TABLES_DIR_Aquarius=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
-TABLES_DIR_Digamma=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
-APP_DIR=/home/rhachilif/ago_STRING/agotool/app
+TABLES_DIR_Aquarius=/home/rhachilif/PMID_autoupdate/agotool/data/PostgreSQL/tables
+TABLES_DIR_Digamma=/home/rhachilif/agotool/data/PostgreSQL/tables
+APP_DIR=/home/rhachilif/agotool/app
 PYTEST_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/pytest
-TESTING_DIR=/home/rhachilif/ago_STRING/agotool/app/python/testing/sanity
+TESTING_DIR=/home/rhachilif/agotool/app/python/testing/sanity
 TAR_GED_ALL_CURRENT=GED_all_current.tar
 global_enrichment_data_current=global_enrichment_data_current.tar.gz
 GED_DIR=/home/rhachilif/global_enrichment_v11
