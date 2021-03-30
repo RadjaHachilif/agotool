@@ -9,14 +9,14 @@ populate_classification_schema_current=populate_classification_schema_current.sq
 TAR_GED_ALL_CURRENT=GED_all_current.tar
 TAR_GED_ALL_BAK=bak_GED_all_$(date +"%Y_%m_%d_%I_%M_%p").tar
 GED_DIR=/home/rhachilif/global_enrichment_v11
-APP_DIR=/mnt/mnemo5/rhachilif/ago_STRING/agotool/app
-PYTHON_DIR=/mnt/mnemo5/rhachilif/ago_STRING/agotool/app/python
-TABLES_DIR=/mnt/mnemo5/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
+APP_DIR=/home/rhachilif/ago_STRING/agotool/app
+PYTHON_DIR=/home/rhachilif/ago_STRING/agotool/app/python
+TABLES_DIR=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
 TABLES_DIR_PISCES=/home/rhachilif/ago_STRING/agotool/data/PostgreSQL/tables
-SNAKEMAKE_EXE=/mnt/mnemo5/rhachilif/anaconda3/envs/agotool/bin/snakemake
-PYTEST_EXE=/mnt/mnemo5/rhachilif/anaconda3/envs/agotool/bin/pytest
-UWSGI_EXE=/mnt/mnemo5/rhachilif/anaconda3/envs/agotool/bin/uwsgi
-TESTING_DIR=/mnt/mnemo5/rhachilif/ago_STRING/agotool/app/python/testing/sanity
+SNAKEMAKE_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/snakemake
+PYTEST_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/pytest
+UWSGI_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/uwsgi
+TESTING_DIR=/home/rhachilif/ago_STRING/agotool/app/python/testing/sanity
 
 echo "--- Cronjob starting "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
 printf "\n ### run snakemake pipeline \n"
@@ -67,9 +67,9 @@ check_exit_status
 #### Production server, decompress files and restart service
 printf "\n### copy files to Digamma\n"
 ### copy files
-rsync -Pav -e "ssh -i /mnt/mnemo5/rhachilif/.ssh/id_rsa_digamma" "$TABLES_DIR"/"$TAR_CURRENT" rhachilif@Digamma.embl.de:"$TABLES_DIR_PISCES"/"$TAR_CURRENT"
+rsync -Pav -e "ssh -i /home/rhachilif/.ssh/id_rsa_digamma" "$TABLES_DIR"/"$TAR_CURRENT" rhachilif@Digamma.embl.de:"$TABLES_DIR_PISCES"/"$TAR_CURRENT"
 check_exit_status
-rsync -Pav -e "ssh -i /mnt/mnemo5/rhachilif/.ssh/id_rsa_digamma" "$TABLES_DIR"/"$TAR_GED_ALL_CURRENT" rhachilif@Digamma.embl.de:"$GED_DIR"/"$TAR_GED_ALL_CURRENT"
+rsync -Pav -e "ssh -i /home/rhachilif/.ssh/id_rsa_digamma" "$TABLES_DIR"/"$TAR_GED_ALL_CURRENT" rhachilif@Digamma.embl.de:"$GED_DIR"/"$TAR_GED_ALL_CURRENT"
 check_exit_status
 ### run update
 echo "run script on Digamma cron_weekly_Digamma_ago_STRING_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
