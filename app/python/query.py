@@ -4,7 +4,7 @@ import pandas as pd
 import datetime, time
 import os, sys
 from collections import defaultdict
-import psycopg2
+# import psycopg2
 from contextlib import contextmanager
 import pickle
 
@@ -450,7 +450,6 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
             read_from_flat_files = variables.READ_FROM_FLAT_FILES
         if from_pickle is None:
             from_pickle = variables.FROM_PICKLE
-        # print(repr(from_pickle), from_pickle, type(from_pickle))
         if variables.VERBOSE:
             print("#"*80)
             print("initializing PQO")
@@ -464,9 +463,14 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
             print("getting lookup arrays")
         # if not low_memory: # override variables if "low_memory" passed to query initialization
         self.year_arr, self.hierlevel_arr, self.entitytype_arr, self.functionalterm_arr, self.indices_arr, self.description_arr, self.category_arr = self.get_lookup_arrays(low_memory, read_from_flat_files, from_pickle)
-        # else:
-        #     self.year_arr, self.hierlevel_arr, self.entitytype_arr, self.functionalterm_arr, self.indices_arr = self.get_lookup_arrays(low_memory, read_from_flat_files)
         self.function_enumeration_len = self.functionalterm_arr.shape[0]
+
+        if variables.VERBOSE:
+            print("getting etype_2_minmax_funcEnum")
+        self.etype_2_minmax_funcEnum = self.get_etype_2_minmax_funcEnum(self.entitytype_arr)
+        self.etype_2_num_functions_dict = {}
+        for etype, min_max in self.etype_2_minmax_funcEnum.items():
+            self.etype_2_num_functions_dict["cond_{}".format(str(etype)[1:])] = min_max[1] - min_max[0] + 1
 
         if variables.VERBOSE:
             print("getting lineage dict")
@@ -545,7 +549,7 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
                                         self.description_arr, self.category_arr, self.etype_2_minmax_funcEnum, self.function_enumeration_len,
                                         self.etype_cond_dict, self.ENSP_2_functionEnumArray_dict, self.taxid_2_proteome_count_dict,
                                         self.taxid_2_tuple_funcEnum_index_2_associations_counts, self.lineage_dict_enum, self.blacklisted_terms_bool_arr,
-                                        self.cond_etypes_with_ontology, self.cond_etypes_rem_foreground_ids, self.kegg_taxid_2_acronym_dict)
+                                        self.cond_etypes_with_ontology, self.cond_etypes_rem_foreground_ids, self.kegg_taxid_2_acronym_dict, self.etype_2_num_functions_dict)
         else:
             # missing: description_arr, category_arr, ENSP_2_functionEnumArray_dict
             # year_arr, hierlevel_arr, entitytype_arr, functionalterm_arr, indices_arr, etype_2_minmax_funcEnum, function_enumeration_len, etype_cond_dict, taxid_2_proteome_count_dict, taxid_2_tuple_funcEnum_index_2_associations_counts, lineage_dict_enum, blacklisted_terms_bool_arr, cond_etypes_with_ontology, cond_etypes_rem_foreground_ids
@@ -553,7 +557,7 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
                                         self.etype_2_minmax_funcEnum, self.function_enumeration_len,
                                         self.etype_cond_dict, self.taxid_2_proteome_count_dict,
                                         self.taxid_2_tuple_funcEnum_index_2_associations_counts, self.lineage_dict_enum, self.blacklisted_terms_bool_arr,
-                                        self.cond_etypes_with_ontology, self.cond_etypes_rem_foreground_ids, self.kegg_taxid_2_acronym_dict)
+                                        self.cond_etypes_with_ontology, self.cond_etypes_rem_foreground_ids, self.kegg_taxid_2_acronym_dict, self.etype_2_num_functions_dict)
         return static_preloaded_objects
 
     def get_blacklisted_terms_bool_arr(self, from_pickle=False):
@@ -563,7 +567,7 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
             return blacklisted_terms_bool_arr
         blacklisted_terms_bool_arr = np.zeros(self.function_enumeration_len, dtype=np.dtype("uint8"))
         # use uint8 and code as 0, 1 instead to make into mem view
-        blacklisted_enum_terms = get_blacklisted_enum_terms(os.path.join(variables.TABLES_DIR, "Functions_table_STRING.txt"), variables.blacklisted_terms, FROM_PICKLE=False) # intentional from_pickle
+        blacklisted_enum_terms = get_blacklisted_enum_terms(variables.tables_dict["Functions_table_STRING"], variables.blacklisted_terms, FROM_PICKLE=False) # intentional from_pickle
         for term_enum in blacklisted_enum_terms: # variables.blacklisted_enum_terms:
             blacklisted_terms_bool_arr[term_enum] = True
         blacklisted_terms_bool_arr.flags.writeable = False
@@ -607,58 +611,20 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
         :param read_from_flat_files: Bool flag to get data from DB or flat files
         :return: immutable numpy array of int
         """
-        if from_pickle:
-            with open(variables.tables_dict["year_arr"], "rb") as fh:
-                year_arr = pickle.load(fh)
-            with open(variables.tables_dict["hierlevel_arr"], "rb") as fh:
-                hierlevel_arr = pickle.load(fh)
-            with open(variables.tables_dict["entitytype_arr"], "rb") as fh:
-                entitytype_arr = pickle.load(fh)
-            with open(variables.tables_dict["functionalterm_arr"], "rb") as fh:
-                functionalterm_arr = pickle.load(fh)
-            with open(variables.tables_dict["indices_arr"], "rb") as fh:
-                indices_arr = pickle.load(fh)
-            with open(variables.tables_dict["description_arr"], "rb") as fh:
-                description_arr = pickle.load(fh)
-            with open(variables.tables_dict["category_arr"], "rb") as fh:
-                category_arr = pickle.load(fh)
-            return year_arr, hierlevel_arr, entitytype_arr, functionalterm_arr, indices_arr, description_arr, category_arr
-
-        if read_from_flat_files:
-            result = get_results_of_statement_from_flat_file(os.path.join(variables.TABLES_DIR, "Functions_table_STRING.txt"))
-            result = list(result)
-        else:
-            result = get_results_of_statement("SELECT * FROM functions")
-        shape_ = len(result)
-        year_arr = np.full(shape=shape_, fill_value=-1, dtype="int16")  # Integer (-32768 to 32767)
-        entitytype_arr = np.full(shape=shape_, fill_value=0, dtype="int8")
+        df = pd.read_csv(variables.tables_dict["Functions_table_STRING"], sep='\t', names=["funcEnum", "etype", "term", "description", "year", "hierlevel"])
+        df["category"] = ""
+        for etype in df["etype"].unique():
+            df.loc[df["etype"] == etype, "category"] = variables.entityType_2_functionType_dict[etype]
+        year_arr = np.array(df["year"].values, dtype="int16")  # Integer (-32768 to 32767)
+        entitytype_arr = np.array(df["etype"].values, dtype="int8")
         if not low_memory:
-            description_arr = np.empty(shape=shape_, dtype=object) # ""U261"))
-            # category_arr = np.empty(shape=shape_, dtype=np.dtype("U49"))  # description of functional category (e.g. "Gene Ontology biological process")
-            category_arr = np.empty(shape=shape_, dtype=object)  # description of functional category (e.g. "Gene Ontology biological process")
-        functionalterm_arr = np.empty(shape=shape_, dtype=object) #np.dtype("U13"))
-        hierlevel_arr = np.full(shape=shape_, fill_value=-1, dtype="int8")  # Byte (-128 to 127)
-        indices_arr = np.arange(shape_, dtype=np.dtype("uint32"))
+            description_arr = np.array(df["description"].values, dtype=object)  # ""U261"))
+            category_arr = np.array(df["category"], dtype=object)  # description of functional category (e.g. "Gene Ontology biological process")
+        functionalterm_arr = np.array(df["term"].values, dtype=object)  # np.dtype("U13"))
+        hierlevel_arr = np.array(df["hierlevel"].values, dtype="int8")  # Byte (-128 to 127)
+        indices_arr = np.arange(df.shape[0], dtype=np.dtype("uint32"))
         indices_arr.flags.writeable = False
-
-        for i, res in enumerate(result):
-            func_enum, etype, term, description, year, hierlevel = res
-            func_enum = int(func_enum)
-            etype = int(etype)
-            try:
-                year = int(year)
-            except ValueError: # e.g. "...."
-                year = -1
-            hierlevel = int(hierlevel)
-            entitytype_arr[func_enum] = etype
-            functionalterm_arr[func_enum] = term
-            year_arr[func_enum] = year
-            hierlevel_arr[func_enum] = hierlevel
-            if not low_memory:
-                description_arr[func_enum] = description
-                category_arr[func_enum] = variables.entityType_2_functionType_dict[etype]
-
-        year_arr.flags.writeable = False # make it immutable
+        year_arr.flags.writeable = False  # make it immutable
         hierlevel_arr.flags.writeable = False
         entitytype_arr.flags.writeable = False
         functionalterm_arr.flags.writeable = False
@@ -723,7 +689,6 @@ def get_blacklisted_enum_terms(fn_functions_table, blacklisted_terms, FROM_PICKL
                 blacklisted_enum_terms.append(int(enum))
     blacklisted_enum_terms = sorted(blacklisted_enum_terms)
     return np.array(blacklisted_enum_terms, dtype=np.dtype("uint32"))
-
 
 def get_KEGG_Taxid_2_acronym_dict(read_from_flat_files=True, from_pickle=False):
     if from_pickle:
@@ -842,17 +807,17 @@ def get_lineage_dict_enum(as_array=False, read_from_flat_files=False, from_pickl
         return lineage_dict_enum
     lineage_dict = {} # key: function enumeration, value: set of func enum array all parents and children
     if read_from_flat_files:
-        results = get_results_of_statement_from_flat_file(os.path.join(variables.TABLES_DIR, "Lineage_table_STRING.txt"))
+        # results = get_results_of_statement_from_flat_file(os.path.join(variables.TABLES_DIR, "Lineage_table_STRING.txt"))
+        results = get_results_of_statement_from_flat_file(variables.tables_dict["Lineage_table_STRING"])
         for res in results:
             term, lineage = res
             term = int(term)
-            lineage = lineage[1:-1].split(",")
+            lineage = lineage.strip().split(",")
             if len(lineage[0]) > 0:
-                lineage = [int(ele) for ele in lineage]
                 if as_array:
-                    lineage_dict[term] = np.array(sorted(lineage), dtype=np.dtype("uint32"))
+                    lineage_dict[term] = np.array(sorted([int(ele) for ele in lineage]), dtype=np.dtype("uint32"))
                 else:
-                    lineage_dict[term] = set(lineage)
+                    lineage_dict[term] = {int(ele) for ele in lineage}
     else:
         results = get_results_of_statement("SELECT * FROM funcenum_2_lineage;")
         for res in results:
@@ -926,13 +891,11 @@ def get_ENSP_2_functionEnumArray_dict(read_from_flat_files=False, from_pickle=Fa
 
     ENSP_2_functionEnumArray_dict = {} # key: String (ENSP), val: np.array(uint32) of function enumerations
     if read_from_flat_files:
-        result = get_results_of_statement_from_flat_file(os.path.join(variables.TABLES_DIR, "Protein_2_FunctionEnum_table_STRING.txt"))
-        for res in result:
-            ENSP, funcEnumArray = res
-            funcEnumArray = funcEnumArray[1:-1].split(",")
-            if len(funcEnumArray[0]) > 0: # debug # remove when tables fixed
-                funcEnumArray = [int(ele) for ele in funcEnumArray]
-                ENSP_2_functionEnumArray_dict[ENSP] = np.array(funcEnumArray, dtype=np.dtype("uint32"))
+        with open(variables.tables_dict["Protein_2_FunctionEnum_table_STRING"], "r") as fh_in:
+            for line in fh_in:
+                ENSP, funcEnumArray = line.strip().split("\t")
+                ENSP_2_functionEnumArray_dict[ENSP] = np.fromstring(funcEnumArray, dtype=np.dtype("uint32"), sep=',')
+
     else:
         limit = 500000
         for offset_ in range(0, 21839547, limit): # 21.500.000 # 21839547
@@ -947,7 +910,7 @@ def get_ENSP_2_functionEnumArray_dict(read_from_flat_files=False, from_pickle=Fa
 def get_ENSP_2_functionEnumArray_dict_old():
     """
     debug : ORDER BY bubu LIMIT 100 OFFSET 50;
-    52.930.904 lines in Protein_2_Function_table_STRING.txt
+    52.930.904 lines in Protein_2_Funct ion_table_STRING.txt
     slow
     ncalls  tottime  percall  cumtime  percall filename:lineno(function)
     1   56.979   56.979  479.601  479.601 query.py:774(get_ENSP_2_functionEnumArray_dict)
@@ -987,7 +950,7 @@ def get_background_taxid_2_funcEnum_index_2_associations(read_from_flat_files=Fa
             background_counts_list = get_background_count_array(taxid)
             # need be uint32 not uint16 since funcEnum is 0 to 7mio
             # but what about 2 arrays: arr_1 (uint32) with funenum_index_positions, arr_2 (uint16) with counts
-            shape_ = len(background_counts_list)
+            shape_= len(background_counts_list)
             index_positions_arr = np.zeros(shape_, dtype=np.dtype("uint32"))
             # index_positions_arr[:] = np.nan
             counts_arr = np.zeros(shape_, dtype=np.dtype("uint16"))
@@ -1000,20 +963,19 @@ def get_background_taxid_2_funcEnum_index_2_associations(read_from_flat_files=Fa
             counts_arr.flags.writeable = False
             taxid_2_tuple_funcEnum_index_2_associations_counts[taxid] = [index_positions_arr, counts_arr]
     else:
-        results = get_results_of_statement_from_flat_file(os.path.join(variables.TABLES_DIR, "Taxid_2_FunctionCountArray_table_STRING.txt"))
+        results = get_results_of_statement_from_flat_file(variables.tables_dict["Taxid_2_FunctionCountArray_table_STRING"])
         for res in results:
-            taxid, background_count, background_count_array = res
+            # taxid, background_count, background_count_array = res
+            taxid, background_count, enumeration_arr, funcEnum_count_background = res
             taxid = int(taxid)
-            background_counts_list = []
-            for sublist in background_count_array[2:-2].split("},{"):
-                background_counts_list.append([int(ele) for ele in sublist.split(",")])
-            shape_ = len(background_counts_list)
+            enumeration_arr = np.fromstring(enumeration_arr, dtype=np.dtype("uint32"), sep=",")
+            funcEnum_count_background = np.fromstring(funcEnum_count_background, dtype=np.dtype("uint32"), sep=",")
+            shape_ = len(enumeration_arr)
             index_positions_arr = np.zeros(shape_, dtype=np.dtype("uint32"))
-            # index_positions_arr[:] = np.nan
             counts_arr = np.zeros(shape_, dtype=np.dtype("uint16"))
-            # counts_arr[:] = np.nan
-            for enum, index_count in enumerate(background_counts_list):
-                index_, count = index_count
+            for enum in range(shape_):
+                index_ = enumeration_arr[enum]
+                count = funcEnum_count_background[enum]
                 index_positions_arr[enum] = index_
                 counts_arr[enum] = count
             index_positions_arr.flags.writeable = False
@@ -1125,7 +1087,8 @@ def get_TaxID_2_proteome_count_dict(read_from_flat_files=False, from_pickle=Fals
         return taxid_2_proteome_count_dict
     taxid_2_proteome_count_dict = {}
     if read_from_flat_files:
-        result = get_results_of_statement_from_flat_file(os.path.join(variables.TABLES_DIR, "Taxid_2_Proteins_table_STRING.txt"), columns=[0, 2])
+        # result = get_results_of_statement_from_flat_file(os.path.join(variables.TABLES_DIR, "Taxid_2_Proteins_table_STRING.txt"), columns=[0, 2])
+        result = get_results_of_statement_from_flat_file(variables.tables_dict["Taxid_2_Proteins_table_STRING"], columns=[0, 1])
     else:
         result = get_results_of_statement("SELECT taxid_2_protein.taxid, taxid_2_protein.count FROM taxid_2_protein;")
     for res in result:
@@ -1223,6 +1186,14 @@ def get_last_updated_text():
 def get_current_time_and_date():
     return time.strftime('%l:%M%p %Z on %b %d, %Y') # ' 1:36PM EDT on Oct 18, 2010'
 
+def get_ENSPs_of_taxid(taxid):
+    taxid = str(taxid)
+    with open(variables.tables_dict["Taxid_2_Proteins_table_STRING"], "r") as fh_in:
+        for line in fh_in:
+            taxid_, count, ensp_arr = line.split("\t")
+            if taxid_ == taxid:
+                return set(ensp_arr.strip().split(","))
+    return set()
 
 if __name__ == "__main__":
     pqo = PersistentQueryObject_STRING(low_memory=True)

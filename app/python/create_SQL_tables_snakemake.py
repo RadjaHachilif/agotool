@@ -1,5 +1,4 @@
 import os, sys, subprocess
-import gzip
 from shlex import split
 import gzip
 import pandas as pd
@@ -8,7 +7,7 @@ import pickle
 from collections import defaultdict
 from collections import deque
 # sys.path.insert(0, os.path.dirname(os.path.abspath(os.path.realpath(__file__))))
-from ast import literal_eval
+# from ast import literal_eval
 import re, obo_parser
 import query, tools, ratio
 import variables as variables
@@ -569,6 +568,9 @@ def format_list_of_string_2_postgres_array(list_of_string):
     """
     return "{" + str(sorted(set(list_of_string)))[1:-1].replace(" ", "").replace("'", '"') + "}"
 
+def format_list_of_string_2_comma_separated(list_of_string):
+    return ",".join(str(ele) for ele in sorted(set(list_of_string)))
+
 def get_function_an_2_enum__and__enum_2_function_an_dict_from_flat_file(fn_Functions_table_STRING):
     function_2_enum_dict, enum_2_function_dict = {}, {}
     with open(fn_Functions_table_STRING, "r") as fh_in:
@@ -586,22 +588,24 @@ def Protein_2_FunctionEnum_table_STRING(fn_Functions_table_STRING, fn_in_Protein
     with open(fn_in_Protein_2_function_table_STRING, "r") as fh_in:
         with open(fn_out_Protein_2_functionEnum_table_STRING, "w") as fh_out:
             ENSP_last, function_arr_str, etype = fh_in.readline().strip().split("\t")
-            function_arr = literal_eval(function_arr_str)
-            functionEnum_list = _helper_format_array(function_arr, function_2_enum_dict)
+            function_arr = function_arr_str.split(",")
+            functionEnum_list = _helper_format_array(function_arr_str.split(","), function_2_enum_dict)
 
             for line in fh_in:
                 ENSP, function_arr_str, etype = line.strip().split("\t")
-                function_arr = literal_eval(function_arr_str)
+                function_arr = function_arr_str.split(",")
 
                 if ENSP == ENSP_last:
                     functionEnum_list += _helper_format_array(function_arr, function_2_enum_dict)
                 else:
                     if len(functionEnum_list) > 0:
-                        fh_out.write(ENSP_last + "\t" + format_list_of_string_2_postgres_array(sorted(functionEnum_list)) + "\n") # etype is removed
+                        # fh_out.write(ENSP_last + "\t" + format_list_of_string_2_postgres_array(functionEnum_list) + "\n") # etype is removed
+                        fh_out.write(ENSP_last + "\t" + format_list_of_string_2_comma_separated(functionEnum_list) + "\n") # etype is removed
                     functionEnum_list = _helper_format_array(function_arr, function_2_enum_dict)
 
                 ENSP_last = ENSP
-            fh_out.write(ENSP_last + "\t" + format_list_of_string_2_postgres_array(sorted(functionEnum_list)) + "\n")  # etype is removed
+            # fh_out.write(ENSP_last + "\t" + format_list_of_string_2_postgres_array(functionEnum_list) + "\n")  # etype is removed
+            fh_out.write(ENSP_last + "\t" + format_list_of_string_2_comma_separated(functionEnum_list) + "\n")  # etype is removed
 
 def _helper_format_array(function_arr, function_2_enum_dict):
     functionEnum_list = []
@@ -678,11 +682,13 @@ def Lineage_table_STRING_v2_STRING_clusters(fn_in_go_basic, fn_in_keywords, fn_i
 
     with open(fn_out_lineage_table, "w") as fh_out:
         for key in sorted(lineage_dict_enum.keys()):
-            fh_out.write(str(key) + "\t" + "{" + str(sorted(set(lineage_dict_enum[key])))[1:-1].replace("'", '"') + "}\n")
+            lineage = lineage_dict_enum[key]
+            if len(lineage) > 0:
+                fh_out.write(str(key) + "\t" + ",".join(str(ele) for ele in sorted(set(lineage))) + "\n")
 
     with open(fn_out_lineage_table_hr, "w") as fh_out:
         for key in sorted(lineage_dict.keys()):
-            fh_out.write(str(key) + "\t" + "{" + str(sorted(set(lineage_dict[key])))[1:-1].replace("'", '"') + "}\n")
+            fh_out.write(str(key) + "\t" + ",".join(str(ele) for ele in sorted(set(lineage_dict[key]))) + "\n")
 
     with open(fn_out_no_translation, "w") as fh_out_no_trans:
         for term in term_no_translation_because_obsolete:
@@ -690,7 +696,7 @@ def Lineage_table_STRING_v2_STRING_clusters(fn_in_go_basic, fn_in_keywords, fn_i
 
 def get_child_2_parent_dict_STRING_clusters(fn_tree):
     child_2_parent_dict = {} # direct parents
-    #ncbi_taxid     child_cluster_id        parent_cluster_id
+    # ncbi_taxid     child_cluster_id        parent_cluster_id
     gen = tools.yield_line_uncompressed_or_gz_file(fn_tree)
     _ = next(gen)
     for line in gen:
@@ -741,23 +747,6 @@ def get_parent_2_direct_children_dict(fn_go_basic_obo, fn_keywords_obo, fn_rctm_
                 parent_2_child_dict[parent].append(child)
     return parent_2_child_dict
 
-
-
-# def get_lineage_Reactome(fn_hierarchy): #, debug=False): # deprecated
-#     lineage_dict = defaultdict(lambda: set())
-#     child_2_parent_dict = get_child_2_direct_parent_dict_RCTM(fn_hierarchy)
-#     # parent_2_children_dict = get_parent_2_child_dict_RCTM(fn_hierarchy)
-#     # if not debug:
-#     #     for parent, children in parent_2_children_dict.items(): #!!! why do I need this? lineage from children to parents is needed not from parents to all children
-#     #         lineage_dict[parent] = children
-#     for child in child_2_parent_dict:
-#         parents = get_parents_iterative(child, child_2_parent_dict)
-#         if child in lineage_dict:
-#             lineage_dict[child].union(parents)
-#         else:
-#             lineage_dict[child] = parents
-#     return lineage_dict
-
 def get_lineage_from_child_2_direct_parent_dict(child_2_direct_parent_dict):
     lineage_dict = defaultdict(lambda: set())
     for child in child_2_direct_parent_dict:
@@ -767,18 +756,6 @@ def get_lineage_from_child_2_direct_parent_dict(child_2_direct_parent_dict):
         else:
             lineage_dict[child] = parents
     return lineage_dict
-
-# def get_parent_2_child_dict_RCTM(fn_hierarchy): # deprecated
-#     parent_2_children_dict = {}
-#     with open(fn_hierarchy, "r") as fh_in:
-#         for line in fh_in:
-#             parent, child = line.split("\t")
-#             child = child.strip()
-#             if parent not in parent_2_children_dict:
-#                 parent_2_children_dict[parent] = {child}
-#             else:
-#                 parent_2_children_dict[parent] |= {child}
-#     return parent_2_children_dict
 
 def get_child_2_direct_parent_dict_RCTM(fn_in):
     """
@@ -914,21 +891,21 @@ def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING,
             for line in fh_in:
                 taxid, ENSP, funcEnum_set = helper_parse_line_Protein_2_FunctionEnum_table_STRING(line)
                 if taxid != taxid_previous:
-                    index_backgroundCount_array_string = helper_format_funcEnum(funcEnum_count_background)
+                    index_backgroundCount_array_string = helper_format_funcEnum(funcEnum_count_background, min_count=2)
                     background_n = taxid_2_total_protein_count_dict[taxid_previous]
                     fh_out.write(taxid_previous + "\t" + background_n + "\t" + index_backgroundCount_array_string + "\n")
                     funcEnum_count_background = np.zeros(shape=num_lines, dtype=np.dtype("uint32"))
 
                 funcEnum_count_background = helper_count_funcEnum(funcEnum_count_background, funcEnum_set)
                 taxid_previous = taxid
-            index_backgroundCount_array_string = helper_format_funcEnum(funcEnum_count_background)
+            index_backgroundCount_array_string = helper_format_funcEnum(funcEnum_count_background, min_count=2)
             background_n = taxid_2_total_protein_count_dict[taxid]
             fh_out.write(taxid + "\t" + background_n + "\t" + index_backgroundCount_array_string + "\n")
     print("Taxid_2_FunctionCountArray_table_STRING done :)")
 
 def helper_parse_line_Protein_2_FunctionEnum_table_STRING(line):
-    ENSP, funcEnum_set = line.split("\t")
-    funcEnum_set = {int(num) for num in literal_eval(funcEnum_set.strip())}
+    ENSP, funcEnum_set = line.strip().split("\t")
+    funcEnum_set = {int(num) for num in funcEnum_set.split(",")}
     taxid = ENSP.split(".")[0]
     return taxid, ENSP, funcEnum_set
 
@@ -937,16 +914,16 @@ def helper_count_funcEnum(funcEnum_count, funcEnum_set):
         funcEnum_count[funcEnum] += 1
     return funcEnum_count
 
-def helper_format_funcEnum(funcEnum_count_background):
-    # background_n = str(np.count_nonzero(funcEnum_count_background)) # wrong count
+def helper_format_funcEnum(funcEnum_count_background, min_count=2):
     enumeration_arr = np.arange(0, funcEnum_count_background.shape[0])
-    cond = funcEnum_count_background > 0
+    cond = funcEnum_count_background >= min_count
     funcEnum_count_background = funcEnum_count_background[cond]
     enumeration_arr = enumeration_arr[cond]
     string_2_write = ""
-    for ele in zip(enumeration_arr, funcEnum_count_background):
-        string_2_write += "{{{0},{1}}},".format(ele[0], ele[1])
-    index_backgroundCount_array_string = "{" + string_2_write[:-1] + "}"
+    # for ele in zip(enumeration_arr, funcEnum_count_background):
+    #     string_2_write += "{{{0},{1}}},".format(ele[0], ele[1])
+    # index_backgroundCount_array_string = "{" + string_2_write[:-1] + "}"
+    index_backgroundCount_array_string = ",".join(str(ele) for ele in list(enumeration_arr)) + "\t" + ",".join(str(ele) for ele in list(funcEnum_count_background))
     return index_backgroundCount_array_string
 
 def Protein_2_Function_table_KEGG(fn_in_kegg_benchmarking, fn_out_Protein_2_Function_table_KEGG, fn_out_KEGG_TaxID_2_acronym_table, number_of_processes=1):
@@ -1062,40 +1039,6 @@ def sort_PFAM_and_SMART(list_of_domain_names):
         else:
             SMART_list.append(domain)
     return sorted(PFAM_list), sorted(SMART_list)
-
-def map_Name_2_AN(fn_in, fn_out, fn_dict, fn_no_mapping):
-    """
-    SMART and PFAM Protein_2_Function_table(s) contain names from parsing the
-    orig source, convert names to accessions
-    :param fn_in: String (Protein_2_Function_table_temp_SMART.txt)
-    :param fn_out: String (Protein_2_Function_table_SMART.txt)
-    :param fn_dict: String (Functions_table_SMART.txt
-    :param fn_no_mapping: String (missing mapping)
-    :return: NONE
-    """
-    print("map_Name_2_AN for {}".format(fn_in))
-    df = pd.read_csv(fn_dict, sep="\t", names=["name", "an"]) # names=["etype", "name", "an", "definition"])
-    name_2_an_dict = pd.Series(df["an"].values, index=df["name"]).to_dict()
-    df["name_v2"] = df["name"].apply(lambda x: x.replace("-", "_").lower())
-    name_2_an_dict_v2 = pd.Series(df["an"].values, index=df["name_v2"]).to_dict()
-    name_2_an_dict.update(name_2_an_dict_v2)
-    name_no_mapping_list = []
-    with open(fn_in, "r") as fh_in:
-        with open(fn_out, "w") as fh_out:
-            for line in fh_in:
-                ENSP, name_array, etype_newline = line.split("\t")
-                name_set = literal_eval(name_array)
-                an_list = []
-                for name in name_set:
-                    try:
-                        an_list.append(name_2_an_dict[name])
-                    except KeyError:
-                        # not in the lookup, therefore should be skipped since most likely obsolete in current version
-                        name_no_mapping_list.append(name)
-                if an_list: # not empty
-                    fh_out.write(ENSP + "\t{" + str(sorted(an_list))[1:-1].replace(" ", "").replace("'", '"') + "}\t" + etype_newline)
-    with open(fn_no_mapping, "w") as fh_no_mapping:
-        fh_no_mapping.write("\n".join(sorted(set(name_no_mapping_list))))
 
 def Protein_2_Function_table_GO(fn_in_obo_file, fn_in_knowledge, fn_out_Protein_2_Function_table_GO, number_of_processes=1, verbose=True):
     """
@@ -1368,100 +1311,6 @@ def cleanup_Keyword(keyword):
     return keyword.replace(".", "").strip()
 
 def yield_entry_UniProt_dat_dump(fn_in):
-    """
-    yield a single entry, delimited by '//' at the end
-    of UniProt DB dump files
-    fn_in = "uniprot_sprot.dat.gz"
-    '//         Terminator                        Once; ends an entry'
-    # ID   D5EJT0_CORAD            Unreviewed;       296 AA.
-    # AC   D5EJT0;
-    # DT   15-JUN-2010, integrated into UniProtKB/TrEMBL.
-    # DT   15-JUN-2010, sequence version 1.
-    # DT   25-OCT-2017, entry version 53.
-    # DE   SubName: Full=Binding-protein-dependent transport systems inner membrane component {ECO:0000313|EMBL:ADE54679.1};
-    # GN   OrderedLocusNames=Caka_1660 {ECO:0000313|EMBL:ADE54679.1};
-    # OS   Coraliomargarita akajimensis (strain DSM 45221 / IAM 15411 / JCM 23193
-    # OS   / KCTC 12865 / 04OKA010-24).
-    # OC   Bacteria; Verrucomicrobia; Opitutae; Puniceicoccales;
-    # OC   Puniceicoccaceae; Coraliomargarita.
-    # OX   NCBI_TaxID=583355 {ECO:0000313|EMBL:ADE54679.1, ECO:0000313|Proteomes:UP000000925};
-    # RN   [1] {ECO:0000313|EMBL:ADE54679.1, ECO:0000313|Proteomes:UP000000925}
-    # RP   NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA].
-    # RC   STRAIN=DSM 45221 / IAM 15411 / JCM 23193 / KCTC 12865
-    # RC   {ECO:0000313|Proteomes:UP000000925};
-    # RX   PubMed=21304713; DOI=10.4056/sigs.952166;
-    # RA   Mavromatis K., Abt B., Brambilla E., Lapidus A., Copeland A.,
-    # RA   Deshpande S., Nolan M., Lucas S., Tice H., Cheng J.F., Han C.,
-    # RA   Detter J.C., Woyke T., Goodwin L., Pitluck S., Held B., Brettin T.,
-    # RA   Tapia R., Ivanova N., Mikhailova N., Pati A., Liolios K., Chen A.,
-    # RA   Palaniappan K., Land M., Hauser L., Chang Y.J., Jeffries C.D.,
-    # RA   Rohde M., Goker M., Bristow J., Eisen J.A., Markowitz V.,
-    # RA   Hugenholtz P., Klenk H.P., Kyrpides N.C.;
-    # RT   "Complete genome sequence of Coraliomargarita akajimensis type strain
-    # RT   (04OKA010-24).";
-    # RL   Stand. Genomic Sci. 2:290-299(2010).
-    # CC   -!- SUBCELLULAR LOCATION: Cell membrane
-    # CC       {ECO:0000256|RuleBase:RU363032}; Multi-pass membrane protein
-    # CC       {ECO:0000256|RuleBase:RU363032}.
-    # CC   -!- SIMILARITY: Belongs to the binding-protein-dependent transport
-    # CC       system permease family. {ECO:0000256|RuleBase:RU363032,
-    # CC       ECO:0000256|SAAS:SAAS00723689}.
-    # CC   -----------------------------------------------------------------------
-    # CC   Copyrighted by the UniProt Consortium, see http://www.uniprot.org/terms
-    # CC   Distributed under the Creative Commons Attribution-NoDerivs License
-    # CC   -----------------------------------------------------------------------
-    # DR   EMBL; CP001998; ADE54679.1; -; Genomic_DNA.
-    # DR   RefSeq; WP_013043401.1; NC_014008.1.
-    # DR   STRING; 583355.Caka_1660; -.
-    # DR   EnsemblBacteria; ADE54679; ADE54679; Caka_1660.
-    # DR   KEGG; caa:Caka_1660; -.
-    # DR   eggNOG; ENOG4105C2T; Bacteria.
-    # DR   eggNOG; COG1173; LUCA.
-    # DR   HOGENOM; HOG000171367; -.
-    # DR   KO; K15582; -.
-    # DR   OMA; PTGIWWT; -.
-    # DR   OrthoDB; POG091H0048; -.
-    # DR   Proteomes; UP000000925; Chromosome.
-    # DR   GO; GO:0016021; C:integral component of membrane; IEA:UniProtKB-KW.
-    # DR   GO; GO:0005886; C:plasma membrane; IEA:UniProtKB-SubCell.
-    # DR   GO; GO:0006810; P:transport; IEA:UniProtKB-KW.
-    # DR   CDD; cd06261; TM_PBP2; 1.
-    # DR   Gene3D; 1.10.3720.10; -; 1.
-    # DR   InterPro; IPR000515; MetI-like.
-    # DR   InterPro; IPR035906; MetI-like_sf.
-    # DR   InterPro; IPR025966; OppC_N.
-    # DR   Pfam; PF00528; BPD_transp_1; 1.
-    # DR   Pfam; PF12911; OppC_N; 1.
-    # DR   SUPFAM; SSF161098; SSF161098; 1.
-    # DR   PROSITE; PS50928; ABC_TM1; 1.
-    # PE   3: Inferred from homology;
-    # KW   Cell membrane {ECO:0000256|SAAS:SAAS00894688};
-    # KW   Complete proteome {ECO:0000313|Proteomes:UP000000925};
-    # KW   Membrane {ECO:0000256|RuleBase:RU363032,
-    # KW   ECO:0000256|SAAS:SAAS00893669};
-    # KW   Reference proteome {ECO:0000313|Proteomes:UP000000925};
-    # KW   Transmembrane {ECO:0000256|RuleBase:RU363032,
-    # KW   ECO:0000256|SAAS:SAAS00894237};
-    # KW   Transmembrane helix {ECO:0000256|RuleBase:RU363032,
-    # KW   ECO:0000256|SAAS:SAAS00894527};
-    # KW   Transport {ECO:0000256|RuleBase:RU363032,
-    # KW   ECO:0000256|SAAS:SAAS00723738}.
-    # FT   TRANSMEM     34     53       Helical. {ECO:0000256|RuleBase:RU363032}.
-    # FT   TRANSMEM     94    119       Helical. {ECO:0000256|RuleBase:RU363032}.
-    # FT   TRANSMEM    131    150       Helical. {ECO:0000256|RuleBase:RU363032}.
-    # FT   TRANSMEM    156    175       Helical. {ECO:0000256|RuleBase:RU363032}.
-    # FT   TRANSMEM    214    239       Helical. {ECO:0000256|RuleBase:RU363032}.
-    # FT   TRANSMEM    259    282       Helical. {ECO:0000256|RuleBase:RU363032}.
-    # FT   DOMAIN       92    282       ABC transmembrane type-1.
-    # FT                                {ECO:0000259|PROSITE:PS50928}.
-    # SQ   SEQUENCE   296 AA;  32279 MW;  3DB3B060376AFDB5 CRC64;
-    #      MIKQQREAKA VSVAATSLGQ DAWERLKRNN MARIGGTLFA IITALCIVGP WLLPHSYDAQ
-    #      NLAYGAQGPS WQHLLGTDDL GRDLLVRILV GGRISIGVGF AASLVALIIG VSYGALAGYI
-    #      GGRTESVMMR FVDAVYALPF TMIVIILTVT FDEKSIFLIF MAIGLVEWLT MARIVRGQTK
-    #      ALRQLNYIDA ARTMGASHLS ILTRHILPNL LGPVIVFTTL TIPAVILLES ILSFLGLGVQ
-    #      PPMSSWGILI NEGADKIDIY PWLLIFPALF FSLTIFALNF IGDGLRDALD PKESQH
-    # //
-    """
     lines_list = []
     for line in tools.yield_line_uncompressed_or_gz_file(fn_in):
         line = line.strip()
@@ -1486,85 +1335,14 @@ def parse_textmining_string_matches(fn):
     df = pd.read_csv(fn, sep="\t", names=names)
     return df
 
-def Protein_2_Function_table_PMID__and__reduce_Functions_table_PMID(fn_in_all_entities, fn_in_string_matches, fn_in_Taxid_2_Proteins_table_STRING, fn_in_Functions_table_PMID_temp, fn_out_Functions_table_PMID, fn_out_Protein_2_Function_table_PMID):
-    df_txtID = parse_textmining_entityID_2_proteinID(fn_in_all_entities)
-    df_stringmatches = parse_textmining_string_matches(fn_in_string_matches)
-    # sanity test that df_stringmatches.entity_id are all in df_txtID.textmining_id --> yes. textmining_id is a superset of entity_id --> after filtering df_txtID this is not true
-    entity_id = set(df_stringmatches["entity_id"].unique())
-    textmining_id = set(df_txtID.textmining_id.unique())
-    assert len(entity_id.intersection(textmining_id)) == len(entity_id)
-
-    # sanity check that there is a one to one mapping between textmining_id and ENSP --> no --> first remove all ENSPs that are not in DB
-    # --> simpler by filtering based on positive integers in species_id column ?
-    # get all ENSPs
-
-    ENSP_set = set()
-    with open(fn_in_Taxid_2_Proteins_table_STRING, "r") as fh:
-        for line in fh:
-            ENSP_set |= literal_eval(line.split("\t")[1])
-    # reduce DF to ENSPs in DB
-    cond = df_txtID["ENSP"].isin(ENSP_set)
-    print("reducing df_txtID from {} to {} rows".format(len(cond), sum(cond)))
-    df_txtID = df_txtID[cond]
-    # sanity check
-    assert len(df_txtID["textmining_id"].unique()) == len(df_txtID["ENSP"].unique())
-    # filter by ENSPs in DB --> TaxID_2_Protein_table_STRING.txt
-    # textminingID_2_ENSP_dict
-    entity_id_2_ENSP_dict = pd.Series(df_txtID["ENSP"].values, index=df_txtID["textmining_id"]).to_dict()
-
-    # reduce df_stringmatches to relevant entity_ids
-    cond = df_stringmatches["entity_id"].isin(df_txtID["textmining_id"].values)
-    print("reducing df_stringmatches from {} to {} rows".format(len(cond), sum(cond)))
-    df_stringmatches = df_stringmatches[cond]
-
-    # create an_2_function_set
-    # entity_id_2_PMID_dict
-    # map entity_id to ENSP
-    df_stringmatches_sub = df_stringmatches[["PMID", "entity_id"]]
-    entity_id_2_PMID_dict = df_stringmatches_sub.groupby("entity_id")["PMID"].apply(set).to_dict()
-
-    ENSP_2_PMID_dict = {}
-    entity_id_2_ENSP_no_mapping = []
-    multi_ENSP = []
-    for entity_id, PMID_set in entity_id_2_PMID_dict.items():
-        try:
-            ENSP = entity_id_2_ENSP_dict[entity_id]
-        except KeyError:
-            entity_id_2_ENSP_no_mapping.append(entity_id)
-            continue
-        if ENSP not in ENSP_2_PMID_dict:
-            ENSP_2_PMID_dict[ENSP] = PMID_set
-        else:
-            multi_ENSP.append([entity_id, ENSP])
-
-    assert len(entity_id_2_ENSP_no_mapping) == 0
-    assert len(multi_ENSP) == 0
-
-    # | etype | an | func_array |
-    etype = "-56"
-    with open(fn_out_Protein_2_Function_table_PMID, "w") as fh_out:
-        for ENSP, PMID_set in ENSP_2_PMID_dict.items():
-            PMID_with_prefix_list = ["PMID:" + str(PMID) for PMID in sorted(PMID_set)]
-            fh_out.write(ENSP + "\t" + "{" + str(PMID_with_prefix_list)[1:-1].replace(" ", "").replace("'", '"') + "}" + "\t" + etype + "\n")
-
-    # #!!! dependency on creating Functions_table_PMID.txt first
-    # reduce Functions_table_PMID.txt to PMIDs that are in Protein_2_Function_table_PMID.txt
-    PMID_set = set(df_stringmatches["PMID"].values)
-    # fn_temp = fn_out_Functions_table_PMID + "_temp"
-    # os.rename(fn_out_Functions_table_PMID, fn_temp)
-    PMID_not_relevant = []
-    with open(fn_in_Functions_table_PMID_temp, "r") as fh_in:
-        with open(fn_out_Functions_table_PMID, "w") as fh_out:
-            for line in fh_in:
-                PMID_including_prefix = line.split("\t")[1]
-                if int(PMID_including_prefix[5:]) in PMID_set:
-                    fh_out.write(line)
-                else:
-                    PMID_not_relevant.append(PMID_including_prefix)
-    # os.remove(fn_temp)
+def Protein_2_Function_table_PMID(Protein_2_Function_table_PMID_STS_gz, Protein_2_Function_table_PMID):
+    with open(Protein_2_Function_table_PMID, "w") as fh_out:
+        for line in tools.yield_line_uncompressed_or_gz_file(Protein_2_Function_table_PMID_STS_gz):
+            ensp, func_arr, etype = line.split("\t")
+            func_arr = func_arr[1:-1].replace('"', "")
+            fh_out.write("{}\t{}\t{}\n".format(ensp, func_arr, etype))
 
 def Protein_2_Function_table_STRING(fn_list, fn_in_Taxid_2_Proteins_table_STRING, fn_out_Protein_2_Function_table_STRING, number_of_processes=1):
-    # fn_list = fn_list_str.split(" ")
     fn_list = [fn for fn in fn_list]
     ### concatenate files
     fn_out_Protein_2_Function_table_STRING_temp = fn_out_Protein_2_Function_table_STRING + "_temp"
@@ -1610,7 +1388,10 @@ def parse_taxid_2_proteins_get_all_ENSPs(fn_Taxid_2_Proteins_table_STRING):
     ENSP_set = set()
     with open(fn_Taxid_2_Proteins_table_STRING, "r") as fh:
         for line in fh:
-            ENSP_set |= literal_eval(line.split("\t")[1])  # reduce DF to ENSPs in DB
+            taxid, num_ensps, ensp_arr = line.strip().split("\t")
+            ensp_list = ensp_arr.split(",")
+            assert int(num_ensps) == len(ensp_list)
+            ENSP_set |= set(ensp_list)
     return ENSP_set
 
 def Function_2_ENSP_table(fn_in_Protein_2_Function_table, fn_in_Taxid_2_Proteins_table, fn_in_Functions_table,
@@ -1637,16 +1418,17 @@ def Function_2_ENSP_table(fn_in_Protein_2_Function_table, fn_in_Taxid_2_Proteins
                             num_ENSPs_total_for_taxid = taxid_2_total_protein_count_dict[taxid_last]
                             for function_an, ENSPs in function_2_ENSPs_dict.items():
                                 num_ENSPs = len(ENSPs)
-                                arr_of_ENSPs = format_list_of_string_2_postgres_array(ENSPs)
+                                # arr_of_ENSPs = format_list_of_string_2_postgres_array(ENSPs)
+                                arr_of_ENSPs = ",".join(sorted(set(ENSPs)))
                                 try:
                                     etype = function_2_etype_dict[function_an]
                                 except KeyError: # for blacklisted terms in variables.py
                                     etype = "-1"
-                                fh_out.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + str(num_ENSPs_total_for_taxid) + "\t" + arr_of_ENSPs + "\n")
+                                fh_out.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + num_ENSPs_total_for_taxid + "\t" + arr_of_ENSPs + "\n")
                                 if num_ENSPs > min_count:
-                                    fh_out_reduced.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + str(num_ENSPs_total_for_taxid) + "\t" + arr_of_ENSPs + "\n")
+                                    fh_out_reduced.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + num_ENSPs_total_for_taxid + "\t" + arr_of_ENSPs + "\n")
                                 else:
-                                    fh_out_removed.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + str(num_ENSPs_total_for_taxid) + "\t" + arr_of_ENSPs + "\n")
+                                    fh_out_removed.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + num_ENSPs_total_for_taxid + "\t" + arr_of_ENSPs + "\n")
                             function_2_ENSPs_dict = defaultdict(list)
                         else:
                             for function in function_an_set:
@@ -1657,16 +1439,17 @@ def Function_2_ENSP_table(fn_in_Protein_2_Function_table, fn_in_Taxid_2_Proteins
                     num_ENSPs_total_for_taxid = taxid_2_total_protein_count_dict[taxid]
                     for function_an, ENSPs in function_2_ENSPs_dict.items():
                         num_ENSPs = len(ENSPs)
-                        arr_of_ENSPs = format_list_of_string_2_postgres_array(ENSPs)
+                        # arr_of_ENSPs = format_list_of_string_2_postgres_array(ENSPs)
+                        arr_of_ENSPs = ",".join(sorted(set(ENSPs)))
                         try:
                             etype = function_2_etype_dict[function_an]
                         except KeyError:  # for blacklisted terms in variables.py
                             etype = "-1"
-                        fh_out.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + str(num_ENSPs_total_for_taxid) + "\t" + arr_of_ENSPs + "\n")
+                        fh_out.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + num_ENSPs_total_for_taxid + "\t" + arr_of_ENSPs + "\n")
                         if num_ENSPs > min_count:
-                            fh_out_reduced.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + str(num_ENSPs_total_for_taxid) + "\t" + arr_of_ENSPs + "\n")
+                            fh_out_reduced.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + num_ENSPs_total_for_taxid + "\t" + arr_of_ENSPs + "\n")
                         else:
-                            fh_out_removed.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + str(num_ENSPs_total_for_taxid) + "\t" + arr_of_ENSPs + "\n")
+                            fh_out_removed.write(taxid_last + "\t" + etype + "\t" + function_an + "\t" + str(num_ENSPs) + "\t" + num_ENSPs_total_for_taxid + "\t" + arr_of_ENSPs + "\n")
     tools.sort_file(fn_out_Function_2_ENSP_table_reduced, fn_out_Function_2_ENSP_table_reduced)
     if verbose:
         print("finished creating \n{}\nand\n{}".format(fn_out_Function_2_ENSP_table_all, fn_out_Function_2_ENSP_table_reduced))
@@ -1699,19 +1482,16 @@ def _helper_parse_line_prot_2_func(line):
     taxid_ENSP, function_an_set_str, etype = line.split("\t")
     taxid = taxid_ENSP.split(".")[0]
     etype = etype.strip()
-    function_an_set = literal_eval(function_an_set_str)
+    function_an_set = set(function_an_set_str.split(","))
     return taxid_ENSP, taxid, etype, function_an_set
 
 def _helper_get_taxid_2_total_protein_count_dict(fn_in_Taxid_2_Proteins_table_STRING):
     taxid_2_total_protein_count_dict = {}
     with open(fn_in_Taxid_2_Proteins_table_STRING, "r") as fh_in:
         for line in fh_in:
-            taxid, ENSP_arr_str, count = line.split("\t")
-            # count = int(count.strip())
-            count = count.strip()
-            # ENSP_arr = literal_eval(ENSP_arr_str)
-            # assert len(ENSP_arr) == count
-            taxid_2_total_protein_count_dict[taxid] = count
+            # taxid, ENSP_arr_str, count = line.split("\t")
+            taxid, count, ENSP_arr_str = line.split("\t")
+            taxid_2_total_protein_count_dict[taxid] = count # count is a String not an Int (since needs to be written to file)
     return taxid_2_total_protein_count_dict
 
 def _helper_get_function_2_funcEnum_dict__and__function_2_etype_dict(fn_in_Functions_table):
@@ -1755,7 +1535,7 @@ def reduce_Protein_2_Function_table(fn_in_protein_2_function, fn_in_function_2_e
                 for line in fh_in:
                     line_split = line.strip().split("\t")
                     ENSP = line_split[0]
-                    assoc_set = literal_eval(line_split[1])
+                    assoc_set = set(line_split[1].split(","))
                     etype = line_split[2]
                     try:
                         assoc_set_2_remove = ENSP_2_assocSet_dict[ENSP]
@@ -1766,9 +1546,9 @@ def reduce_Protein_2_Function_table(fn_in_protein_2_function, fn_in_function_2_e
                         except TypeError: # empty set, which should not happen
                             continue
                         if assoc_reduced:
-                            fh_out_reduced.write(ENSP + "\t" + "{" + str(sorted(assoc_reduced))[1:-1].replace(" ", "").replace("'", '"') + "}\t" + etype + "\n")
+                            fh_out_reduced.write(ENSP + "\t" + format_list_of_string_2_comma_separated(assoc_reduced) + "\t" + etype + "\n")
                         if assoc_rest:
-                            fh_out_rest.write(ENSP + "\t" + "{" + str(sorted(assoc_rest))[1:-1].replace(" ", "").replace("'", '"') + "}\t" + etype + "\n")
+                            fh_out_rest.write(ENSP + "\t" + format_list_of_string_2_comma_separated(assoc_rest) + "\t" + etype + "\n")
                     except KeyError:
                         assoc_reduced, assoc_rest = [], []
                         for an in assoc_set:
@@ -1777,75 +1557,10 @@ def reduce_Protein_2_Function_table(fn_in_protein_2_function, fn_in_function_2_e
                             else:
                                 assoc_rest.append(an)
                         if assoc_reduced:
-                            fh_out_reduced.write(ENSP + "\t" + "{" + str(sorted(assoc_reduced))[1:-1].replace(" ", "").replace("'", '"') + "}\t" + etype + "\n")
+                            fh_out_reduced.write(ENSP + "\t" + format_list_of_string_2_comma_separated(assoc_reduced) + "\t" + etype + "\n")
                         if assoc_rest:
-                            fh_out_rest.write(ENSP + "\t" + "{" + str(sorted(assoc_rest))[1:-1].replace(" ", "").replace("'", '"') + "}\t" + etype + "\n")
+                            fh_out_rest.write(ENSP + "\t" + format_list_of_string_2_comma_separated(assoc_rest) + "\t" + etype + "\n")
     print("finished with reduce_Protein_2_Function_by_subtracting_Function_2_ENSP_rest")
-
-# def AFC_KS_enrichment_terms_flat_files_old(fn_in_Protein_shorthands, fn_in_Functions_table_STRING_reduced, fn_in_Function_2_ENSP_table_STRING_reduced, KEGG_TaxID_2_acronym_table, fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_interpro_parent_2_child_tree, fn_out_AFC_KS_DIR, verbose=True):
-#     parent_2_direct_children_dict = get_parent_2_direct_children_dict(fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_interpro_parent_2_child_tree)
-#     print("AFC_KS_enrichment_terms_flat_files start")
-#     ENSP_2_internalID_dict = {}
-#     with open(fn_in_Protein_shorthands, "r") as fh:
-#         for line in fh:
-#             ENSP, internalID = line.split()
-#             internalID = internalID.strip()
-#             ENSP_2_internalID_dict[ENSP] = internalID
-#
-#     association_2_description_dict = {}
-#     with open(fn_in_Functions_table_STRING_reduced, "r") as fh:
-#         for line in fh:
-#             enum, etype, an, description, year, level = line.split("\t")
-#             association_2_description_dict[an] = description
-#
-#     taxid_2_acronym_dict = {}
-#     with open(KEGG_TaxID_2_acronym_table, "r") as fh:
-#         for line in fh:
-#             taxid, acronym = line.split("\t")
-#             acronym = acronym.strip()
-#             taxid_2_acronym_dict[taxid] = acronym
-#
-#     fn_out_prefix = os.path.join(fn_out_AFC_KS_DIR + "{}_AFC_KS_all_terms.tsv")
-#     with open(fn_in_Function_2_ENSP_table_STRING_reduced, "r") as fh_in:
-#         taxid_last, etype, association, background_count, background_n, an_array = fh_in.readline().split()
-#         fn_out = fn_out_prefix.format(taxid_last)
-#         fn_out_lineage = fn_out.replace(".tsv", "_lineage.tsv")
-#         fh_out = open(fn_out, "w")
-#         fh_out_lineage = open(fn_out_lineage, "w")
-#         fh_in.seek(0)
-#         for line in fh_in:
-#             taxid, etype, association, background_count, background_n, an_array = line.split()
-#             an_array = literal_eval(an_array.strip())
-#             try:
-#                 description = association_2_description_dict[association]
-#             except KeyError: # since removed due to e.g. blacklisting
-#                 continue
-#             number_of_ENSPs = str(len(an_array))
-#             array_of_ENSPs_with_internal_IDS = " ".join(sorted(map_ENSPs_2_internalIDs(an_array, ENSP_2_internalID_dict)))
-#             if taxid != taxid_last:
-#                 fh_out.close()
-#                 fh_out_lineage.close()
-#                 fn_out = fn_out_prefix.format(taxid)
-#                 fn_out_lineage = fn_out.replace(".tsv", "_lineage.tsv")
-#                 fh_out = open(fn_out, "w")
-#                 fh_out_lineage = open(fn_out_lineage, "w")
-#             if etype == "-52": # KEGG
-#                 try:
-#                     acronym = taxid_2_acronym_dict[taxid]
-#                 except KeyError:
-#                     # print("no KEGG acronym translation for TaxID: {}".format(taxid))
-#                     acronym = "map"
-#                 association = association.replace("map", acronym)
-#             fh_out.write(association + "\t" + etype + "\t" + description + "\t" + number_of_ENSPs + "\t" + array_of_ENSPs_with_internal_IDS + "\n")
-#             taxid_last = taxid
-#             try:
-#                 children_list = parent_2_direct_children_dict[association]
-#             except KeyError:
-#                 continue
-#             fh_out_lineage.write(association + "\t" + "\t".join(children_list) + "\n")
-#         fh_out.close()
-#         fh_out_lineage.close()
-#     print("AFC_KS_enrichment_terms_flat_files done :)")
 
 def AFC_KS_enrichment_terms_flat_files(functions_table, protein_shorthands, KEGG_TaxID_2_acronym_table, Function_2_ENSP_table_STRING, GO_basic_obo, UPK_obo, RCTM_hierarchy, interpro_parent_2_child_tree, tree_STRING_clusters, global_enrichment_data_current_tar_gz, populate_classification_schema_current_sql_gz):
     print("creating AFC_KS files")
@@ -1945,7 +1660,8 @@ def AFC_KS_enrichment_terms_flat_files(functions_table, protein_shorthands, KEGG
             taxid, etype, term, background_count, background_n, an_array = line.split()
             taxid = int(taxid)
             etype = int(etype)
-            ENSP_list = an_array.strip()[1:-1].replace('"', "").split(",")
+            # ENSP_list = an_array.strip()[1:-1].replace('"', "").split(",")
+            ENSP_list = an_array.strip().split(",")
             if term not in functionalterm_set:
                 continue
             try:
@@ -2133,38 +1849,16 @@ def helper_clean_messy_string(string_):
     else:
         return string_
 
-def pickle_PMID_autoupdates(Lineage_table_STRING, Taxid_2_FunctionCountArray_table_STRING, output_list):
-    assert os.path.exists(Lineage_table_STRING)
-    assert os.path.exists(Taxid_2_FunctionCountArray_table_STRING)
-    taxid_2_proteome_count_dict, kegg_taxid_2_acronym_dict, year_arr, hierlevel_arr, entitytype_arr, functionalterm_arr, indices_arr, description_arr, category_arr, lineage_dict_enum, blacklisted_terms_bool_arr, ENSP_2_functionEnumArray_dict, taxid_2_tuple_funcEnum_index_2_associations_counts, etype_2_minmax_funcEnum, etype_cond_dict = output_list
-    pqo = query.PersistentQueryObject_STRING(low_memory=False, read_from_flat_files=True, from_pickle=False)
-    print("writing pickle dumps")
-    pickle.dump(pqo.taxid_2_proteome_count_dict, open(taxid_2_proteome_count_dict, "wb"))
-    pickle.dump(pqo.kegg_taxid_2_acronym_dict, open(kegg_taxid_2_acronym_dict, "wb"))
-    pickle.dump(pqo.year_arr, open(year_arr, "wb"))
-    pickle.dump(pqo.hierlevel_arr, open(hierlevel_arr, "wb"))
-    pickle.dump(pqo.entitytype_arr, open(entitytype_arr, "wb"))
-    pickle.dump(pqo.functionalterm_arr, open(functionalterm_arr, "wb"))
-    pickle.dump(pqo.indices_arr, open(indices_arr, "wb"))
-    pickle.dump(pqo.description_arr, open(description_arr, "wb"))
-    pickle.dump(pqo.category_arr, open(category_arr, "wb"))
-    pickle.dump(pqo.lineage_dict_enum, open(lineage_dict_enum, "wb"))
-    pickle.dump(pqo.blacklisted_terms_bool_arr, open(blacklisted_terms_bool_arr, "wb"))
-    pickle.dump(pqo.ENSP_2_functionEnumArray_dict, open(ENSP_2_functionEnumArray_dict, "wb"))
-    pickle.dump(pqo.taxid_2_tuple_funcEnum_index_2_associations_counts, open(taxid_2_tuple_funcEnum_index_2_associations_counts, "wb"))
-    pickle.dump(pqo.etype_2_minmax_funcEnum, open(etype_2_minmax_funcEnum, "wb"))
-    pickle.dump(pqo.etype_cond_dict, open(etype_cond_dict, "wb"))
-    print("done :)")
-
-def add_2_DF_file_dimensions_log(LOG_DF_FILE_DIMENSIONS, LOG_DF_FILE_DIMENSIONS_GLOBAL_ENRICHMENT, taxid_2_proteome_count_dict, global_enrichment_data_current_tar_gz, populate_classification_schema_current_sql_gz):
+def add_2_DF_file_dimensions_log(LOG_DF_FILE_DIMENSIONS, LOG_DF_FILE_DIMENSIONS_GLOBAL_ENRICHMENT, global_enrichment_data_current_tar_gz, populate_classification_schema_current_sql_gz, Taxid_2_FunctionCountArray_table_STRING):
     """
     read old log and add number of lines of flat files and bytes of data for binary files to log,
     write to disk
     :return: None
     """
-    assert os.path.exists(taxid_2_proteome_count_dict)
+    # assert os.path.exists(taxid_2_proteome_count_dict)
     assert os.path.exists(global_enrichment_data_current_tar_gz)
     assert os.path.exists(populate_classification_schema_current_sql_gz)
+    assert os.path.exists(Taxid_2_FunctionCountArray_table_STRING)
 
     # read old table and add data to it
     df_old = pd.read_csv(LOG_DF_FILE_DIMENSIONS, sep="\t")
@@ -2172,12 +1866,12 @@ def add_2_DF_file_dimensions_log(LOG_DF_FILE_DIMENSIONS, LOG_DF_FILE_DIMENSIONS_
     fn_list, binary_list, size_list, num_lines_list, date_list, checksum_list = [], [], [], [], [], []
     for fn in sorted(os.listdir(TABLES_DIR)):
         fn_abs_path = os.path.join(TABLES_DIR, fn)
-        # if fn.endswith("STS_FIN.txt"): ## not needed since only static file from STRING_v11 kegg_taxid_2_acronym_table_STS_FIN.txt
-        #     binary_list.append(False)
-        #     num_lines_list.append(tools.line_numbers(fn_abs_path))
-        if fn.endswith("STS_FIN.p"):
-            binary_list.append(True)
-            num_lines_list.append(np.nan)
+        if fn.endswith("STS_FIN.txt"): ## not needed since only static file from STRING_v11 kegg_taxid_2_acronym_table_STS_FIN.txt
+            binary_list.append(False)
+            num_lines_list.append(tools.line_numbers(fn_abs_path))
+        # if fn.endswith("STS_FIN.p"):
+        #     binary_list.append(True)
+        #     num_lines_list.append(np.nan)
         else:
             continue
         fn_list.append(fn)
@@ -2192,7 +1886,12 @@ def add_2_DF_file_dimensions_log(LOG_DF_FILE_DIMENSIONS, LOG_DF_FILE_DIMENSIONS_
     df["size"] = size_list
     df["num_lines"] = num_lines_list
     df["date"] = date_list
-    df["version"] = max(df_old["version"]) + 1
+    # df["version"] = max(df_old["version"]) + 1
+    try:
+        version = max(df_old["version"])
+    except ValueError:
+        version = 0
+    df["version"] = version + 1
     df["checksum"] = checksum_list
     df = pd.concat([df_old, df])
     df.to_csv(LOG_DF_FILE_DIMENSIONS, sep="\t", header=True, index=False)
@@ -2227,42 +1926,251 @@ def add_2_DF_file_dimensions_log(LOG_DF_FILE_DIMENSIONS, LOG_DF_FILE_DIMENSIONS_
     df["num_lines"] = num_lines_list
     df["date"] = date_list
     df["md5"] = md5_list
-    df["version"] = max(df_old["version"]) + 1
+    try:
+        version = max(df_old["version"])
+    except ValueError:
+        version = 0
+    df["version"] = version + 1
     df = pd.concat([df_old, df])
     df.to_csv(LOG_DF_FILE_DIMENSIONS_GLOBAL_ENRICHMENT, sep="\t", header=True, index=False)
 
+def get_EntrezGeneID_2_ENSP(fn):
+    """
+    taxid   entrez  ENSP
+    1217658 23003381        1217658.F987_00645
+    1217658 23003382        1217658.F987_00644
+    """
+    df = pd.read_csv(fn, sep='\t')
+    EntrezGeneID_2_ENSP_dict = {entrez: [ENSP] for entrez, ENSP in zip(df["entrez"], df["ENSP"])}
+    return EntrezGeneID_2_ENSP_dict
+
+def Protein_2_Function__and__Functions_table_WikiPathways_STS(fn_in_WikiPathways_organisms_metadata, fn_in_STRING_EntrezGeneID_2_STRING, Human_WikiPathways_gmt, fn_out_Functions_table_WikiPathways, fn_out_Protein_2_Function_table_WikiPathways, verbose=True): # fn_in_STRING_EntrezGeneID_2_STRING, fn_in_Taxid_2_Proteins_table_STS
+    """
+    DOWNLOADS_DIR = "/home/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/downloads"
+    TABLES_DIR = "/home/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables"
+    WikiPathways_organisms_metadata = os.path.join(DOWNLOADS_DIR, "WikiPathways_organisms_metadata.tsv") # ancient
+    STRING_EntrezGeneID_2_STRING = os.path.join(DOWNLOADS_DIR, "STRING_v11_all_organisms_entrez_2_string_2018.tsv")
+    Human_WikiPathways_gmt = r"/scratch/dblyon/agotool/data/PostgreSQL/downloads/wikipathways-Homo_sapiens.gmt"
+    Functions_table_WikiPathways = os.path.join(TABLES_DIR, "Functions_table_WikiPathways.txt")
+    Protein_2_Function_table_WikiPathways_STS = os.path.join(TABLES_DIR, "Protein_2_Function_table_WikiPathways_STS.txt")
+    Protein_2_Function__and__Functions_table_WikiPathways_STS(WikiPathways_organisms_metadata, STRING_EntrezGeneID_2_STRING, Human_WikiPathways_gmt, Functions_table_WikiPathways, Protein_2_Function_table_WikiPathways_STS)
+
+    link http://data.wikipathways.org
+    use gmt = Gene Matrix Transposed, lists of datanodes per pathway, unified to Entrez Gene identifiers.
+    map Entrez Gene IDs to UniProt using ftp://ftp.expasy.org/databases/uniprot/current_release/knowledgebase/idmapping/idmapping_selected.tab.gz
+    """
+    if verbose:
+        print("creating Functions_table_WikiPathways and Protein_2_Function_table_WikiPathways")
+    df_wiki_meta = pd.read_csv(fn_in_WikiPathways_organisms_metadata, sep="\t")
+    df_wiki_meta["Genus species"] = df_wiki_meta["Genus species"].apply(lambda s: "_".join(s.split(" ")))
+    TaxName_2_Taxid_dict = pd.Series(df_wiki_meta["Taxid"].values, index=df_wiki_meta["Genus species"]).to_dict()
+    year, level = "-1", "-1"
+    etype = "-58"
+    EntrezGeneID_2_ENSP_dict = get_EntrezGeneID_2_ENSP(fn_in_STRING_EntrezGeneID_2_STRING) # previously fn_in_UniProt_ID_mapping
+    WikiPathways_dir = os.path.dirname(Human_WikiPathways_gmt)
+    fn_list = [os.path.join(WikiPathways_dir, fn) for fn in os.listdir(WikiPathways_dir) if fn.endswith(".gmt")]
+    already_written = []
+    with open(fn_out_Functions_table_WikiPathways, "w") as fh_out_functions:  # etype | an | description | year | level
+        with open(fn_out_Protein_2_Function_table_WikiPathways, "w") as fh_out_protein_2_function:  # an | func_array | etype
+            for fn_wiki in fn_list:
+                taxname = fn_wiki.split("-")[-1].replace(".gmt", "")
+                try:
+                    taxid = TaxName_2_Taxid_dict[taxname]  # taxid is an integer
+                except KeyError:
+                    print("WikiPathways, couldn't translate TaxName from file: {}".format(fn_wiki))
+                    continue
+                with open(fn_wiki, "r") as fh_in: # remove dupliates
+                    # remember pathway to proteins mapping --> then translate to ENSP to func_array
+                    WikiPathwayID_2_EntrezGeneIDList_dict = {}
+                    for line in fh_in:  # DNA Replication%WikiPathways_20190310%WP1223%Anopheles gambiae	http://www.wikipathways.org/instance/WP1223_r68760	1275918	1275917	1282031	3290537	1276035	1280711	1281887
+                        pathwayName_version_pathwayID_TaxName, url_, *entrez_ids = line.strip().split("\t")  # 'DNA Replication', 'WikiPathways_20190310', 'WP1223', 'Anopheles gambiae', ['1275918', ... ]
+                        pathwayName, version, pathwayID, TaxName = pathwayName_version_pathwayID_TaxName.split("%")
+                        description = pathwayName
+                        an = pathwayID
+                        WikiPathwayID_2_EntrezGeneIDList_dict[pathwayID] = entrez_ids
+                        line_2_write = etype + "\t" + an + "\t" + description + "\t" + year + "\t" + level + "\n"
+                        if line_2_write not in already_written:
+                            fh_out_functions.write(line_2_write) # check for uniqueness of names/ IDs later
+                            already_written.append(line_2_write)
+
+                    # map to UniProt and to STRING, single pathway to multiple entrez_ids translate to ENSP/UniProtAN to multiple pathways
+                    ENSP_2_wiki_dict = {}
+                    for WikiPathwayID, EntrezGeneID_list in WikiPathwayID_2_EntrezGeneIDList_dict.items():
+                        for EntrezGeneID in EntrezGeneID_list:
+                            try:
+                                ENSP_list = EntrezGeneID_2_ENSP_dict[EntrezGeneID]
+                            except KeyError:
+                                ENSP_list = []
+                            for ENSP in ENSP_list:
+                                if ENSP not in ENSP_2_wiki_dict:
+                                    ENSP_2_wiki_dict[ENSP] = [WikiPathwayID]
+                                else:
+                                    ENSP_2_wiki_dict[ENSP].append(WikiPathwayID)
+                    for ENSP, wiki_list in ENSP_2_wiki_dict.items():
+                        func_array = ",".join(sorted(set(wiki_list)))
+                        fh_out_protein_2_function.write(str(taxid) + "\t" + ENSP + "\t" + func_array + "\t" + etype + "\n")
 
 if __name__ == "__main__":
-    # create_table_Protein_2_Function_table_RCTM__and__Function_table_RCTM()
+    pass
 
-    ### dubugging start
-    # fn_in_go_basic = os.path.join(DOWNLOADS_DIR, "go-basic.obo")
-    # fn_out_Functions_table_GO = os.path.join(TABLES_DIR, "Functions_table_GO.txt")
-    # is_upk = False
-    # create_Functions_table_GO_or_UPK(fn_in_go_basic, fn_out_Functions_table_GO, is_upk)
+##### RIP dead code
+# def pickle_PMID_autoupdates(Lineage_table_STRING, Taxid_2_FunctionCountArray_table_STRING, output_list):
+#     assert os.path.exists(Lineage_table_STRING)
+#     assert os.path.exists(Taxid_2_FunctionCountArray_table_STRING)
+#     taxid_2_proteome_count_dict, kegg_taxid_2_acronym_dict, year_arr, hierlevel_arr, entitytype_arr, functionalterm_arr, indices_arr, description_arr, category_arr, lineage_dict_enum, blacklisted_terms_bool_arr, ENSP_2_functionEnumArray_dict, taxid_2_tuple_funcEnum_index_2_associations_counts, etype_2_minmax_funcEnum, etype_cond_dict = output_list
+#     pqo = query.PersistentQueryObject_STRING(low_memory=False, read_from_flat_files=True, from_pickle=False)
+#     print("writing pickle dumps")
+#     pickle.dump(pqo.taxid_2_proteome_count_dict, open(taxid_2_proteome_count_dict, "wb"))
+#     pickle.dump(pqo.kegg_taxid_2_acronym_dict, open(kegg_taxid_2_acronym_dict, "wb"))
+#     pickle.dump(pqo.year_arr, open(year_arr, "wb"))
+#     pickle.dump(pqo.hierlevel_arr, open(hierlevel_arr, "wb"))
+#     pickle.dump(pqo.entitytype_arr, open(entitytype_arr, "wb"))
+#     pickle.dump(pqo.functionalterm_arr, open(functionalterm_arr, "wb"))
+#     pickle.dump(pqo.indices_arr, open(indices_arr, "wb"))
+#     pickle.dump(pqo.description_arr, open(description_arr, "wb"))
+#     pickle.dump(pqo.category_arr, open(category_arr, "wb"))
+#     pickle.dump(pqo.lineage_dict_enum, open(lineage_dict_enum, "wb"))
+#     pickle.dump(pqo.blacklisted_terms_bool_arr, open(blacklisted_terms_bool_arr, "wb"))
+#     pickle.dump(pqo.ENSP_2_functionEnumArray_dict, open(ENSP_2_functionEnumArray_dict, "wb"))
+#     pickle.dump(pqo.taxid_2_tuple_funcEnum_index_2_associations_counts, open(taxid_2_tuple_funcEnum_index_2_associations_counts, "wb"))
+#     pickle.dump(pqo.etype_2_minmax_funcEnum, open(etype_2_minmax_funcEnum, "wb"))
+#     pickle.dump(pqo.etype_cond_dict, open(etype_cond_dict, "wb"))
+#     print("done :)")
 
-    # string2uniprot = os.path.join(DOWNLOADS_DIR, "full_uniprot_2_string.jan_2018.clean.tsv")
-    # uniprot2interpro = os.path.join(DOWNLOADS_DIR, "protein2ipr.dat.gz")
-    # string2interpro = os.path.join(DOWNLOADS_DIR, "string2interpro.dat.gz")
-    # map_string_2_interpro(string2uniprot, uniprot2interpro, string2interpro)
+# def get_lineage_Reactome(fn_hierarchy): #, debug=False): # deprecated
+#     lineage_dict = defaultdict(lambda: set())
+#     child_2_parent_dict = get_child_2_direct_parent_dict_RCTM(fn_hierarchy)
+#     # parent_2_children_dict = get_parent_2_child_dict_RCTM(fn_hierarchy)
+#     # if not debug:
+#     #     for parent, children in parent_2_children_dict.items(): #!!! why do I need this? lineage from children to parents is needed not from parents to all children
+#     #         lineage_dict[parent] = children
+#     for child in child_2_parent_dict:
+#         parents = get_parents_iterative(child, child_2_parent_dict)
+#         if child in lineage_dict:
+#             lineage_dict[child].union(parents)
+#         else:
+#             lineage_dict[child] = parents
+#     return lineage_dict
 
-    # Functions_table_UPK = os.path.join(TABLES_DIR, "Functions_table_UPK.txt")
-    # fn_in_obo = os.path.join(DOWNLOADS_DIR, "keywords-all.obo")
-    # fn_in_uniprot_SwissProt_dat = os.path.join(DOWNLOADS_DIR, "uniprot_sprot.dat.gz")
-    # fn_in_uniprot_TrEMBL_dat= os.path.join(DOWNLOADS_DIR, "uniprot_sprot.dat.gz.1")
-    # fn_in_uniprot_2_string = os.path.join(DOWNLOADS_DIR, "full_uniprot_2_string.jan_2018.clean.tsv")
-    # fn_out_Protein_2_Function_table_UPK = os.path.join(TABLES_DIR, "Protein_2_Function_table_UPK.txt")
-    # create_Protein_2_Function_table_UniProtKeyword(Functions_table_UPK, fn_in_obo, fn_in_uniprot_SwissProt_dat, fn_in_uniprot_TrEMBL_dat, fn_in_uniprot_2_string, fn_out_Protein_2_Function_table_UPK, number_of_processes=1, verbose=True)
+# def get_parent_2_child_dict_RCTM(fn_hierarchy): # deprecated
+#     parent_2_children_dict = {}
+#     with open(fn_hierarchy, "r") as fh_in:
+#         for line in fh_in:
+#             parent, child = line.split("\t")
+#             child = child.strip()
+#             if parent not in parent_2_children_dict:
+#                 parent_2_children_dict[parent] = {child}
+#             else:
+#                 parent_2_children_dict[parent] |= {child}
+#     return parent_2_children_dict
 
 
+# def Protein_2_Function_table_PMID__and__reduce_Functions_table_PMID(fn_in_all_entities, fn_in_string_matches, fn_in_Taxid_2_Proteins_table_STRING, fn_in_Functions_table_PMID_temp, fn_out_Functions_table_PMID, fn_out_Protein_2_Function_table_PMID):
+#     df_txtID = parse_textmining_entityID_2_proteinID(fn_in_all_entities)
+#     df_stringmatches = parse_textmining_string_matches(fn_in_string_matches)
+#     # sanity test that df_stringmatches.entity_id are all in df_txtID.textmining_id --> yes. textmining_id is a superset of entity_id --> after filtering df_txtID this is not true
+#     entity_id = set(df_stringmatches["entity_id"].unique())
+#     textmining_id = set(df_txtID.textmining_id.unique())
+#     assert len(entity_id.intersection(textmining_id)) == len(entity_id)
+#
+#     # sanity check that there is a one to one mapping between textmining_id and ENSP --> no --> first remove all ENSPs that are not in DB
+#     # --> simpler by filtering based on positive integers in species_id column ?
+#     # get all ENSPs
+#
+#     ENSP_set = set()
+#     with open(fn_in_Taxid_2_Proteins_table_STRING, "r") as fh:
+#         for line in fh:
+#             ENSP_set |= literal_eval(line.split("\t")[1])
+#     # reduce DF to ENSPs in DB
+#     cond = df_txtID["ENSP"].isin(ENSP_set)
+#     print("reducing df_txtID from {} to {} rows".format(len(cond), sum(cond)))
+#     df_txtID = df_txtID[cond]
+#     # sanity check
+#     assert len(df_txtID["textmining_id"].unique()) == len(df_txtID["ENSP"].unique())
+#     # filter by ENSPs in DB --> TaxID_2_Protein_table_STRING.txt
+#     # textminingID_2_ENSP_dict
+#     entity_id_2_ENSP_dict = pd.Series(df_txtID["ENSP"].values, index=df_txtID["textmining_id"]).to_dict()
+#
+#     # reduce df_stringmatches to relevant entity_ids
+#     cond = df_stringmatches["entity_id"].isin(df_txtID["textmining_id"].values)
+#     print("reducing df_stringmatches from {} to {} rows".format(len(cond), sum(cond)))
+#     df_stringmatches = df_stringmatches[cond]
+#
+#     # create an_2_function_set
+#     # entity_id_2_PMID_dict
+#     # map entity_id to ENSP
+#     df_stringmatches_sub = df_stringmatches[["PMID", "entity_id"]]
+#     entity_id_2_PMID_dict = df_stringmatches_sub.groupby("entity_id")["PMID"].apply(set).to_dict()
+#
+#     ENSP_2_PMID_dict = {}
+#     entity_id_2_ENSP_no_mapping = []
+#     multi_ENSP = []
+#     for entity_id, PMID_set in entity_id_2_PMID_dict.items():
+#         try:
+#             ENSP = entity_id_2_ENSP_dict[entity_id]
+#         except KeyError:
+#             entity_id_2_ENSP_no_mapping.append(entity_id)
+#             continue
+#         if ENSP not in ENSP_2_PMID_dict:
+#             ENSP_2_PMID_dict[ENSP] = PMID_set
+#         else:
+#             multi_ENSP.append([entity_id, ENSP])
+#
+#     assert len(entity_id_2_ENSP_no_mapping) == 0
+#     assert len(multi_ENSP) == 0
+#
+#     # | etype | an | func_array |
+#     etype = "-56"
+#     with open(fn_out_Protein_2_Function_table_PMID, "w") as fh_out:
+#         for ENSP, PMID_set in ENSP_2_PMID_dict.items():
+#             PMID_with_prefix_list = ["PMID:" + str(PMID) for PMID in sorted(PMID_set)]
+#             fh_out.write(ENSP + "\t" + "{" + str(PMID_with_prefix_list)[1:-1].replace(" ", "").replace("'", '"') + "}" + "\t" + etype + "\n")
+#
+#     # #!!! dependency on creating Functions_table_PMID.txt first
+#     # reduce Functions_table_PMID.txt to PMIDs that are in Protein_2_Function_table_PMID.txt
+#     PMID_set = set(df_stringmatches["PMID"].values)
+#     # fn_temp = fn_out_Functions_table_PMID + "_temp"
+#     # os.rename(fn_out_Functions_table_PMID, fn_temp)
+#     PMID_not_relevant = []
+#     with open(fn_in_Functions_table_PMID_temp, "r") as fh_in:
+#         with open(fn_out_Functions_table_PMID, "w") as fh_out:
+#             for line in fh_in:
+#                 PMID_including_prefix = line.split("\t")[1]
+#                 if int(PMID_including_prefix[5:]) in PMID_set:
+#                     fh_out.write(line)
+#                 else:
+#                     PMID_not_relevant.append(PMID_including_prefix)
 
-    # Protein_2_Function_table_STRING = os.path.join(TABLES_DIR, "Protein_2_Function_table_STRING.txt")
-    # Function_2_ENSP_table_STRING_removed = os.path.join(TABLES_DIR, "Function_2_ENSP_table_STRING_removed.txt")
-    # Functions_table_STRING_reduced = os.path.join(TABLES_DIR, "Functions_table_STRING_reduced.txt")
-    # Protein_2_Function_table_STRING_reduced = os.path.join(TABLES_DIR, "Protein_2_Function_table_STRING_reduced.txt")
-    # Protein_2_Function_table_STRING_removed = os.path.join(TABLES_DIR, "Protein_2_Function_table_STRING_removed.txt")
-    # reduce_Protein_2_Function_by_subtracting_Function_2_ENSP_rest_and_Functions_table_STRING_reduced(Protein_2_Function_table_STRING, Function_2_ENSP_table_STRING_removed, Functions_table_STRING_reduced, Protein_2_Function_table_STRING_reduced, Protein_2_Function_table_STRING_removed)
-    ### dubugging stop
-    GO_basic_obo = r"/home/dblyon/agotool/data/PostgreSQL/downloads/go-basic.obo"
-    Functions_table_GO = r"/home/dblyon/agotool/data/PostgreSQL/tables/Functions_table_GO_v2.txt"
-    Functions_table_GO_or_UPK(GO_basic_obo, Functions_table_GO, is_upk=False)
+# def map_Name_2_AN(fn_in, fn_out, fn_dict, fn_no_mapping):
+#     """
+#     SMART and PFAM Protein_2_Function_table(s) contain names from parsing the
+#     orig source, convert names to accessions
+#     :param fn_in: String (Protein_2_Function_table_temp_SMART.txt)
+#     :param fn_out: String (Protein_2_Function_table_SMART.txt)
+#     :param fn_dict: String (Functions_table_SMART.txt
+#     :param fn_no_mapping: String (missing mapping)
+#     :return: NONE
+#     """
+#     print("map_Name_2_AN for {}".format(fn_in))
+#     df = pd.read_csv(fn_dict, sep="\t", names=["name", "an"]) # names=["etype", "name", "an", "definition"])
+#     name_2_an_dict = pd.Series(df["an"].values, index=df["name"]).to_dict()
+#     df["name_v2"] = df["name"].apply(lambda x: x.replace("-", "_").lower())
+#     name_2_an_dict_v2 = pd.Series(df["an"].values, index=df["name_v2"]).to_dict()
+#     name_2_an_dict.update(name_2_an_dict_v2)
+#     name_no_mapping_list = []
+#     with open(fn_in, "r") as fh_in:
+#         with open(fn_out, "w") as fh_out:
+#             for line in fh_in:
+#                 ENSP, name_array, etype_newline = line.split("\t")
+#                 name_set = literal_eval(name_array)
+#                 an_list = []
+#                 for name in name_set:
+#                     try:
+#                         an_list.append(name_2_an_dict[name])
+#                     except KeyError:
+#                         # not in the lookup, therefore should be skipped since most likely obsolete in current version
+#                         name_no_mapping_list.append(name)
+#                 if an_list: # not empty
+#                     fh_out.write(ENSP + "\t{" + str(sorted(an_list))[1:-1].replace(" ", "").replace("'", '"') + "}\t" + etype_newline)
+#     with open(fn_no_mapping, "w") as fh_no_mapping:
+#         fh_no_mapping.write("\n".join(sorted(set(name_no_mapping_list))))
