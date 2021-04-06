@@ -3,7 +3,7 @@ import os, sys, multiprocessing
 # import pickle
 ############################
 ### settings
-PRELOAD = True  # set True in production for STRING_v11 (not for UniProt)
+PRELOAD = True # set True in production for STRING_v11 (not for UniProt)
 # pre-load objects DB connection necessary, set to False while testing with pytest
 skip_slow_downloads = True # 2 large slow downloads that take >= 30 min to download
 skip_downloads_completely = True # don't download anything
@@ -15,7 +15,7 @@ DOCKER = False # app and data directory, within image or shared with local host,
 LOW_MEMORY = False # load function_an_2_description_dict or query DB
 DB_DOCKER = False # connect via local port vs via docker, in query.py
 READ_FROM_FLAT_FILES = True # get data for PQO from flat files instead of from PostgreSQL # set "DOCKER" to True!
-FROM_PICKLE = True # read PQO data from pickle instead of flatfiles
+FROM_PICKLE = False # read PQO data from pickle instead of flatfiles
 DEBUG = False # for flask and some internals for printing, set to False in production
 LOG_USERINPUT_DEBUG = False # turn logging for userinput (args_dict) on or off. False in production
 PROFILING = False # profiling flaskapp --> check stdout, set to False in production
@@ -29,17 +29,20 @@ if READ_FROM_FLAT_FILES and LOW_MEMORY:
     raise NotImplementedError
 ARGPARSE = False # use argparse for IP and port parsing
 ############################
-entity_types = {-21, -22, -23, -51, -52, -53, -54, -55, -56, -57, -78}
+entity_types = {-20, -21, -22, -23, -25, -26, -51, -52, -53, -54, -55, -56, -57, -58, -78}
 PMID = {-56}
 alpha = 0.05
 entity_types_with_data_in_functions_table = entity_types
-entity_types_with_ontology = {-21, -22, -23, -51, -57, -78} # turn InterPro filter off
+entity_types_with_ontology = {-20, -21, -22, -23, -25, -26, -51, -57, -78} # turn InterPro filter off
 # entity_types_rem_foreground_ids = {-52, -53, -54, -55}
 entity_types_rem_foreground_ids = entity_types - PMID - entity_types_with_ontology # all_etypes - PMID - ontologies
 enrichment_methods = {"abundance_correction", "compare_samples", "characterize_foreground", "genome", "compare_groups"}
-functionType_2_entityType_dict = {"GOBP": -21, # Gene Ontology biological process
+functionType_2_entityType_dict = {"GOCC TextMining": -20,
+                                  "GOBP": -21, # Gene Ontology biological process
                                   "GOCC": -22, # Gene Ontology cellular component
                                   "GOMF": -23, # Gene Ontology molecular function
+                                  "Brenda Tissue Ontology": -25,
+                                  "Disease Ontology": -26,
                                   "UniProt keywords": -51,
                                   "KEGG": -52, #  (Kyoto Encyclopedia of Genes and Genomes)
                                   "SMART": -53, #  (Simple Modular Architecture Research Tool)
@@ -47,10 +50,15 @@ functionType_2_entityType_dict = {"GOBP": -21, # Gene Ontology biological proces
                                   "PFAM": -55, #  (Protein FAMilies)
                                   "PMID": -56,
                                   "Reactome": -57,
+                                  "WikiPathways": -58,
                                   "STRING_clusters": -78}
 
-entityType_2_functionType_dict = {-21: "Gene Ontology biological process",
+entityType_2_functionType_dict = {-20: "GOCC TextMining",
+                                  -21: "Gene Ontology biological process",
                                   -22: "Gene Ontology cellular component",
+                                  -23: "Gene Ontology molecular function",
+                                  -25: "Brenda Tissue Ontology",
+                                  -26: "Disease Ontology",
                                   -23: "Gene Ontology molecular function",
                                   -51: "UniProt keywords",
                                   -52: "KEGG (Kyoto Encyclopedia of Genes and Genomes)",
@@ -59,6 +67,7 @@ entityType_2_functionType_dict = {-21: "Gene Ontology biological process",
                                   -55: "PFAM (Protein FAMilies)",
                                   -56: "PMID (PubMed IDentifier)",
                                   -57: "Reactome",
+                                  -58: "WikiPathways",
                                   -78: "STRING_clusters"}
 
 limit_2_entity_types_ALL = ";".join([str(ele) for ele in entity_types_with_data_in_functions_table])
@@ -235,6 +244,11 @@ tables_dict = {"taxid_2_proteome_count_dict": os.path.join(TABLES_DIR, "taxid_2_
                "populate_classification_schema_current_sql_gz": os.path.join(TABLES_DIR, "populate_classification_schema_current.sql.gz"),
                "global_enrichment_data_DIR": os.path.join(TABLES_DIR, "global_enrichment_data"),
                "global_enrichment_data_current_tar_gz": os.path.join(TABLES_DIR, "global_enrichment_data_current.tar.gz"),
+               "Taxid_2_Proteins_table_STRING": os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STS_FIN.txt"),
+               "Functions_table_STRING": os.path.join(TABLES_DIR, "Functions_table_STS_FIN.txt"),
+               "Lineage_table_STRING": os.path.join(TABLES_DIR, "Lineage_table_STS_FIN.txt"),
+               "Protein_2_FunctionEnum_table_STRING": os.path.join(TABLES_DIR, "Protein_2_FunctionEnum_table_STS_FIN.txt"),
+               "Taxid_2_FunctionCountArray_table_STRING": os.path.join(TABLES_DIR, "Taxid_2_FunctionCountArray_table_STS_FIN.txt"),
                }
                # "Taxid_2_Proteins_table": os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_{}.txt".format(appendix)),
                # "blacklisted_enum_terms": os.path.join(TABLES_DIR, "blacklisted_enum_terms_{}.p".format(appendix)),
@@ -263,5 +277,3 @@ TABLES_DICT_SNAKEMAKE = {tablename: os.path.join(TABLES_DIR_SNAKEMAKE, os.path.b
 # fn_functions_table = os.path.join(TABLES_DIR, "Functions_table_STRING.txt")
 # blacklisted_enum_terms = get_blacklisted_enum_terms(fn_functions_table, blacklisted_terms)
 # blacklisted_enum_terms = np.array([45826, 3348, 29853, 44962, 45487, 34225, 45240, 46138, 46149, 46150, 46151, 46152, 45513, 45769, 45130, 46156, 46157, 46158, 46153, 45777, 46056, 45302, 45692], dtype=np.dtype("uint32"))
-
-
