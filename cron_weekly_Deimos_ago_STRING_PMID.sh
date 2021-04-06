@@ -67,9 +67,9 @@ check_exit_status
 #### Production server, decompress files and restart service
 printf "\n### copy files to Digamma\n"
 ### copy files
-rsync -Pav -e "ssh digamma" "$TABLES_DIR"/"$TAR_CURRENT" rhachilif@Digamma.embl.de:"$TABLES_DIR_PISCES"/"$TAR_CURRENT"
+rsync -av -e "$TABLES_DIR"/"$TAR_CURRENT" rhachilif@Digamma.embl.de:"$TABLES_DIR_PISCES"/"$TAR_CURRENT"
 check_exit_status
-rsync -Pav -e "ssh digamma" "$TABLES_DIR"/"$TAR_GED_ALL_CURRENT" rhachilif@Digamma.embl.de:"$GED_DIR"/"$TAR_GED_ALL_CURRENT"
+rsync -av -e "$TABLES_DIR"/"$TAR_GED_ALL_CURRENT" rhachilif@Digamma.embl.de:"$GED_DIR"/"$TAR_GED_ALL_CURRENT"
 check_exit_status
 ### run update
 echo "run script on Digamma cron_weekly_Digamma_ago_STRING_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
