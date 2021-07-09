@@ -4,6 +4,8 @@ import requests, time
 import urllib.request, urllib.parse
 from subprocess import call
 from retrying import retry
+from ftplib import FTP
+from bs4 import BeautifulSoup
 
 PYTHON_DIR = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
 sys.path.insert(0, PYTHON_DIR)
@@ -61,7 +63,35 @@ def download_gzip_file(url, file_name, verbose=True):
     if verbose:
         print("finished download")
 
+def download_WikiPathways(url, download_dir, Human_WikiPathways_gmt): #WikiPathways_not_a_gmt_file):
+    """
+    download flat files in GMT format
+    Gene Matrix Transposed, lists of datanodes per pathway, unified to Entrez Gene identifiers.
+    e.g.
+    'http://data.wikipathways.org/current/gmt/wikipathways-20190310-gmt-Anopheles_gambiae.gmt'
+    http://data.wikipathways.org/current/gmt
+    """
+    # get potential URLs to download
+    files_2_download = sorted(set(get_list_of_files_2_download_from_http(url, ext="gmt")))
+    # download and rename
+    for url in files_2_download:
+        # check if needed, rename?
+        basename = os.path.basename(url)
+        basename_split = basename.split("-")
+        basename_without_date = "-".join([basename_split[0]] + basename_split[3:])
+        file_name = os.path.join(download_dir, basename_without_date)
+        download_requests(url, file_name, verbose=False)
+    # with open(WikiPathways_not_a_gmt_file, "w") as fh_out:
+    #     fh_out.write("downloaded {} number of gmt files".format(len(files_2_download)))
+    assert os.path.exists(Human_WikiPathways_gmt)
 
+def get_list_of_files_2_download_from_http(url, ext='', go_subset=False):
+    page = requests.get(url).text
+    soup = BeautifulSoup(page, 'html.parser')
+    if go_subset:
+        return [node.get('href') for node in soup.find_all('a') if node.get('href').endswith(ext)]
+    else:
+        return [url + '/' + node.get('href')[2:] for node in soup.find_all('a') if node.get('href').endswith(ext)]
 
 
 

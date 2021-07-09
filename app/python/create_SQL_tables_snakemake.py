@@ -7,11 +7,12 @@ import pickle
 from collections import defaultdict
 from collections import deque
 # sys.path.insert(0, os.path.dirname(os.path.abspath(os.path.realpath(__file__))))
-# from ast import literal_eval
-import re, obo_parser
+from ast import literal_eval
+import re, ast, obo_parser
 import query, tools, ratio
 import variables as variables
 import datetime
+import math
 
 TYPEDEF_TAG, TERM_TAG = "[Typedef]", "[Term]"
 BASH_LOCATION = r"/usr/bin/env bash"
@@ -560,13 +561,28 @@ def concatenate_Functions_tables(fn_list_str, fn_out, number_of_processes):
             for enum, line in enumerate(fh_in):
                 fh_out.write(str(enum) + "\t" + line)
 
+def concatenate_Functions_tables_no_enum(fn_list_str, fn_out, number_of_processes):
+    # fn_list = [os.path.join(TABLES_DIR, fn) for fn in ["Functions_table_GO.txt", "Functions_table_UPK.txt", "Functions_table_KEGG.txt", "Functions_table_SMART.txt", "Functions_table_PFAM.txt", "Functions_table_InterPro.txt", "Functions_table_RCTM.txt"]]
+    fn_list = [fn for fn in fn_list_str]
+    # concatenate files
+    fn_out_temp = fn_out + "_temp"
+    tools.concatenate_files(fn_list, fn_out_temp)
+    # sort
+    tools.sort_file(fn_out_temp, fn_out_temp, number_of_processes=number_of_processes)
+    # add functional enumeration column
+    with open(fn_out_temp, "r") as fh_in:
+        with open(fn_out, "w") as fh_out:
+            for enum, line in enumerate(fh_in):
+                fh_out.write(line)
+
 def format_list_of_string_2_postgres_array(list_of_string):
     """
     removes internal spaces
     :param list_of_string: List of String
     :return: String
     """
-    return "{" + str(sorted(set(list_of_string)))[1:-1].replace(" ", "").replace("'", '"') + "}"
+    #return "{" + str(sorted(set(list_of_string)))[1:-1].replace(" ", "").replace("'", '"') + "}"
+    return str(sorted(set(list_of_string)))[1:-1].replace(" ", "").replace("'", "") 
 
 def format_list_of_string_2_comma_separated(list_of_string):
     return ",".join(str(ele) for ele in sorted(set(list_of_string)))
@@ -644,7 +660,7 @@ def Lineage_table_STRING(fn_in_go_basic, fn_in_keywords, fn_in_rctm_hierarchy, f
         for term in term_no_translation_because_obsolete:
             fh_out_no_trans.write(term + "\n")
 
-def Lineage_table_STRING_v2_STRING_clusters(fn_in_go_basic, fn_in_keywords, fn_in_rctm_hierarchy, fn_in_interpro_parent_2_child_tree, fn_in_functions, fn_tree_STRING_clusters,fn_out_lineage_table, fn_out_lineage_table_hr, fn_out_no_translation):
+def Lineage_table_STRING_v2_STRING_clusters(fn_in_GO_obo_Jensenlab, fn_in_go_basic, fn_in_keywords, fn_in_rctm_hierarchy, fn_in_interpro_parent_2_child_tree, fn_in_functions, fn_tree_STRING_clusters, fn_in_DOID_obo_Jensenlab, fn_in_BTO_obo_Jensenlab, fn_out_lineage_table, fn_out_lineage_table_hr, fn_out_no_translation):
     """
     GO_basic_obo = os.path.join(DOWNLOADS_DIR, "go-basic.obo")
     UPK_obo = os.path.join(DOWNLOADS_DIR, "keywords-all.obo")
@@ -657,7 +673,14 @@ def Lineage_table_STRING_v2_STRING_clusters(fn_in_go_basic, fn_in_keywords, fn_i
     fn_tree_STRING_clusters = os.path.join(DOWNLOADS_DIR, "clusters.tree.v11.0.txt.gz")
     Lineage_table_STRING_v2_STRING_clusters(GO_basic_obo, UPK_obo, RCTM_hierarchy, interpro_parent_2_child_tree, Functions_table_STRING_reduced, fn_tree_STRING_clusters. Lineage_table, Lineage_table_hr, Lineage_table_no_translation)
     """
-    lineage_dict = get_lineage_dict_for_all_entity_types_with_ontologies(fn_in_go_basic, fn_in_keywords, fn_in_rctm_hierarchy, fn_in_interpro_parent_2_child_tree)
+    lineage_dict = get_lineage_dict_for_all_entity_types_with_ontologies(fn_in_GO_obo_Jensenlab, fn_in_keywords, fn_in_rctm_hierarchy, fn_in_DOID_obo_Jensenlab, fn_in_BTO_obo_Jensenlab, fn_in_interpro_parent_2_child_tree)
+    
+    # Jensenlab obo first, up-to-date GO_obo after to overwrite/update entries
+    go_dag = obo_parser.GODag(obo_file=fn_in_go_basic)
+    for go_term_name in go_dag:
+        GOTerm_instance = go_dag[go_term_name]
+        lineage_dict[go_term_name] = GOTerm_instance.get_all_parents()
+
     child_2_parent_dict_STRING_clusters = get_child_2_parent_dict_STRING_clusters(fn_tree_STRING_clusters)
     lineage_dict.update(get_lineage_from_child_2_direct_parent_dict(child_2_parent_dict_STRING_clusters))
     # lineage includes child. lineage_dict[child] = {child, parent_1, parent_2, ...}
@@ -665,7 +688,7 @@ def Lineage_table_STRING_v2_STRING_clusters(fn_in_go_basic, fn_in_keywords, fn_i
     term_2_enum_dict = {key: val for key, val in zip(functionalterm_arr, indices_arr)}
     lineage_dict_enum = {}
     term_no_translation_because_obsolete = []
-
+ 
     for funcName, lineage in lineage_dict.items():  # lineage of funcNames
         try:
             funcEnum = term_2_enum_dict[funcName]
@@ -709,7 +732,7 @@ def get_child_2_parent_dict_STRING_clusters(fn_tree):
             child_2_parent_dict[child] |= {parent}
     return child_2_parent_dict
 
-def get_lineage_dict_for_all_entity_types_with_ontologies(fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_interpro_parent_2_child_tree):
+def get_lineage_dict_for_all_entity_types_with_ontologies(fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_DOID_obo_Jensenlab, fn_in_BTO_obo_Jensenlab, fn_in_interpro_parent_2_child_tree):
     lineage_dict = {}
     go_dag = obo_parser.GODag(obo_file=fn_go_basic_obo)
     upk_dag = obo_parser.GODag(obo_file=fn_keywords_obo, upk=True)
@@ -722,6 +745,15 @@ def get_lineage_dict_for_all_entity_types_with_ontologies(fn_go_basic_obo, fn_ke
         Term_instance = upk_dag[term_name]
         lineage_dict[term_name] = Term_instance.get_all_parents()
 
+    bto_dag = obo_parser.GODag(obo_file=fn_in_BTO_obo_Jensenlab)
+    for term_name in bto_dag:
+        Term_instance = bto_dag[term_name]
+        lineage_dict[term_name ] = Term_instance.get_all_parents()
+    doid_dag = obo_parser.GODag(obo_file=fn_in_DOID_obo_Jensenlab)
+    for term_name in doid_dag:
+        Term_instance = doid_dag[term_name]
+        lineage_dict[term_name ] = Term_instance.get_all_parents()        
+
     # lineage_dict.update(get_lineage_Reactome(fn_rctm_hierarchy))
     child_2_parent_dict = get_child_2_direct_parent_dict_RCTM(fn_rctm_hierarchy)
     lineage_dict.update(get_lineage_from_child_2_direct_parent_dict(child_2_parent_dict))
@@ -730,12 +762,17 @@ def get_lineage_dict_for_all_entity_types_with_ontologies(fn_go_basic_obo, fn_ke
     lineage_dict.update(get_lineage_from_child_2_direct_parent_dict(child_2_parent_dict))
     return lineage_dict
 
-def get_parent_2_direct_children_dict(fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_interpro_parent_2_child_tree, fn_tree_STRING_clusters):
+def get_parent_2_direct_children_dict(fn_GO_obo_Jensenlab, fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_interpro_parent_2_child_tree, fn_tree_STRING_clusters, fn_DOID_obo_Jensenlab, fn_BTO_obo_Jensenlab):
     child_2_parent_dict, parent_2_child_dict = {}, {}
     child_2_parent_dict.update(get_child_2_parent_dict_STRING_clusters(fn_tree_STRING_clusters))
     child_2_parent_dict.update(get_child_2_direct_parent_dict_from_dag(obo_parser.GODag(obo_file=fn_go_basic_obo)))
+    child_2_parent_dict.update(get_child_2_direct_parent_dict_from_dag(obo_parser.GODag(obo_file=fn_GO_obo_Jensenlab)))
     child_2_parent_dict.update(get_child_2_direct_parent_dict_from_dag(obo_parser.GODag(obo_file=fn_keywords_obo, upk=True)))
     child_2_parent_dict.update(get_child_2_direct_parent_dict_RCTM(fn_rctm_hierarchy))
+
+    child_2_parent_dict.update(get_child_2_direct_parent_dict_from_dag(obo_parser.GODag(obo_file=fn_DOID_obo_Jensenlab)))
+    child_2_parent_dict.update(get_child_2_direct_parent_dict_from_dag(obo_parser.GODag(obo_file=fn_BTO_obo_Jensenlab)))
+
     child_2_parent_dict_temp, _ = get_child_2_direct_parents_and_term_2_level_dict_interpro(fn_in_interpro_parent_2_child_tree)
     child_2_parent_dict.update(child_2_parent_dict_temp)
 
@@ -866,11 +903,11 @@ def Taxid_2_Proteins_table(fn_in_protein_shorthands, fn_out_Taxid_2_Proteins_tab
                     ENSP_list.append(ENSP)
                 else:
                     ENSPs_2_write = sorted(set(ENSP_list))
-                    fh_out.write(TaxID_previous + "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\t" + str(len(ENSPs_2_write)) + "\n")
+                    fh_out.write(TaxID_previous + "\t" + str(len(ENSPs_2_write)) + "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\n")
                     ENSP_list = [ENSP]
                     TaxID_previous = TaxID
             ENSPs_2_write = sorted(set(ENSP_list))
-            fh_out.write(TaxID_previous + "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\t" + str(len(ENSPs_2_write)) + "\n")
+            fh_out.write(TaxID_previous + "\t" + str(len(ENSPs_2_write)) + "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\n")
 
 def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING, Functions_table_STRING, Taxid_2_Proteins_table, fn_out_Taxid_2_FunctionCountArray_table_STRING, number_of_processes=1):
     # - sort Protein_2_FunctionEnum_table_STRING.txt
@@ -892,6 +929,8 @@ def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING,
                 taxid, ENSP, funcEnum_set = helper_parse_line_Protein_2_FunctionEnum_table_STRING(line)
                 if taxid != taxid_previous:
                     index_backgroundCount_array_string = helper_format_funcEnum(funcEnum_count_background, min_count=2)
+                    if not taxid_previous in taxid_2_total_protein_count_dict.keys():
+                        continue
                     background_n = taxid_2_total_protein_count_dict[taxid_previous]
                     fh_out.write(taxid_previous + "\t" + background_n + "\t" + index_backgroundCount_array_string + "\n")
                     funcEnum_count_background = np.zeros(shape=num_lines, dtype=np.dtype("uint32"))
@@ -982,7 +1021,7 @@ def long_2_wide_format(fn_in, fn_out, etype=None):
             else:
                 fh_out.write(an + "\t{" + ','.join('"' + item + '"' for item in sorted(set(function_list))) + "}\t" + etype + "\n")
 
-def Protein_2_Function_table_SMART_and_PFAM_temp(fn_in_dom_prot_full, fn_out_SMART_temp, fn_out_PFAM_temp, number_of_processes=1, verbose=True):
+def Protein_2_Function_table_SMART_and_PFAM_temp(fn_in_dom_prot_full, fn_in_map_name_2_an_SMART, fn_in_map_name_2_an_PFAM, fn_out_SMART_temp, fn_out_PFAM_temp, number_of_processes=1, verbose=True):
     """
     :param fn_in_dom_prot_full: String (e.g. /mnt/mnemo5/dblyon/agotool/data/PostgreSQL/downloads/string11_dom_prot_full.sql)
     :param fn_out_SMART_temp: String (e.g. /mnt/mnemo5/dblyon/agotool/data/PostgreSQL/tables/Protein_2_Function_table_SMART.txt)
@@ -998,16 +1037,33 @@ def Protein_2_Function_table_SMART_and_PFAM_temp(fn_in_dom_prot_full, fn_out_SMA
         print("parsing previous result to produce create_Protein_2_Function_table_SMART.txt and Protein_2_Function_table_PFAM.txt")
     entityType_SMART = variables.id_2_entityTypeNumber_dict["SMART"]
     entityType_PFAM = variables.id_2_entityTypeNumber_dict["PFAM"]
+
     with open(fn_out_PFAM_temp, "w") as fh_out_PFAM:
         with open(fn_out_SMART_temp, "w") as fh_out_SMART:
             for ENSP, PFAM_list_SMART_list in parse_string11_dom_prot_full_yield_entry(fn_in_dom_prot_full):
                 PFAM_list, SMART_list = PFAM_list_SMART_list
+                PFAM_list  = map_list(PFAM_list, fn_in_map_name_2_an_PFAM) # map domains using map_name_2_an files
+                SMART_list = map_list(SMART_list, fn_in_map_name_2_an_SMART)
                 if len(PFAM_list) >= 1:
                     fh_out_PFAM.write(ENSP + "\t" + "{" + str(PFAM_list)[1:-1].replace(" ", "").replace("'", '"') + "}\t" + entityType_PFAM + "\n")
                 if len(SMART_list) >= 1:
                     fh_out_SMART.write(ENSP + "\t" + "{" + str(SMART_list)[1:-1].replace(" ", "").replace("'", '"') + "}\t" + entityType_SMART + "\n")
     if verbose:
         print("done create_Protein_2_Function_table_SMART\n")
+
+def map_list (to_be_mapped_list, fn_in_map_name_2_an):
+    mapping_dict = {}
+    with open(fn_in_map_name_2_an, "r") as fh_in:
+        for line in fh_in:
+            name, an = line.split()
+            mapping_dict[name] = an
+    mapped_list = []
+    for l in to_be_mapped_list:
+        if l in mapping_dict.keys():
+            mapped_list.append(mapping_dict[l])
+        else:
+            mapped_list.append(l)
+    return mapped_list
 
 def parse_string11_dom_prot_full_yield_entry(fn_in):
     domain_list = []
@@ -1346,7 +1402,7 @@ def Protein_2_Function_table_STRING(fn_list, fn_in_Taxid_2_Proteins_table_STRING
     fn_list = [fn for fn in fn_list]
     ### concatenate files
     fn_out_Protein_2_Function_table_STRING_temp = fn_out_Protein_2_Function_table_STRING + "_temp"
-    fn_out_Protein_2_Function_table_STRING_rest = fn_out_Protein_2_Function_table_STRING + "_rest"
+    fn_out_Protein_2_Function_table_STRING_rest = fn_out_Protein_2_Function_table_STRING 
     tools.concatenate_files(fn_list, fn_out_Protein_2_Function_table_STRING_temp)
     ### sort
     tools.sort_file(fn_out_Protein_2_Function_table_STRING_temp, fn_out_Protein_2_Function_table_STRING_temp, number_of_processes=number_of_processes)
@@ -1388,7 +1444,7 @@ def parse_taxid_2_proteins_get_all_ENSPs(fn_Taxid_2_Proteins_table_STRING):
     ENSP_set = set()
     with open(fn_Taxid_2_Proteins_table_STRING, "r") as fh:
         for line in fh:
-            taxid, num_ensps, ensp_arr = line.strip().split("\t")
+            taxid, ensp_arr , num_ensps = line.strip().split("\t")
             ensp_list = ensp_arr.split(",")
             assert int(num_ensps) == len(ensp_list)
             ENSP_set |= set(ensp_list)
@@ -1405,6 +1461,7 @@ def Function_2_ENSP_table(fn_in_Protein_2_Function_table, fn_in_Taxid_2_Proteins
 
     function_2_ENSPs_dict = defaultdict(list)
     taxid_2_total_protein_count_dict = _helper_get_taxid_2_total_protein_count_dict(fn_in_Taxid_2_Proteins_table)
+
     _, function_2_etype_dict = _helper_get_function_2_funcEnum_dict__and__function_2_etype_dict(fn_in_Functions_table) # funcenum not correct at this stage since some functions will be removed from Functions_table_STRING and thus the enumeration would be wrong
     with open(fn_in_Protein_2_Function_table, "r") as fh_in:
         taxid_ENSP, taxid_last, etype_dont_use, function_an_set = _helper_parse_line_prot_2_func(fh_in.readline())
@@ -1414,6 +1471,8 @@ def Function_2_ENSP_table(fn_in_Protein_2_Function_table, fn_in_Taxid_2_Proteins
                 with open(fn_out_Function_2_ENSP_table_removed, "w") as fh_out_removed:
                     for line in fh_in:
                         taxid_ENSP, taxid, etype_dont_use, function_an_set = _helper_parse_line_prot_2_func(line)
+                        if not taxid in taxid_2_total_protein_count_dict.keys():
+                            continue
                         if taxid != taxid_last:
                             num_ENSPs_total_for_taxid = taxid_2_total_protein_count_dict[taxid_last]
                             for function_an, ENSPs in function_2_ENSPs_dict.items():
@@ -1433,8 +1492,8 @@ def Function_2_ENSP_table(fn_in_Protein_2_Function_table, fn_in_Taxid_2_Proteins
                         else:
                             for function in function_an_set:
                                 function_2_ENSPs_dict[function].append(taxid_ENSP)
-
                         taxid_last = taxid
+
 
                     num_ENSPs_total_for_taxid = taxid_2_total_protein_count_dict[taxid]
                     for function_an, ENSPs in function_2_ENSPs_dict.items():
@@ -1482,7 +1541,10 @@ def _helper_parse_line_prot_2_func(line):
     taxid_ENSP, function_an_set_str, etype = line.split("\t")
     taxid = taxid_ENSP.split(".")[0]
     etype = etype.strip()
-    function_an_set = set(function_an_set_str.split(","))
+    #function_an_set_str = function_an_set_str.replace('{', '')
+    #function_an_set_str = function_an_set_str.replace('}', '')
+    #function_an_set_str = function_an_set_str.replace('\"', '')
+    function_an_set = set(function_an_set_str.replace(" ","").split(","))
     return taxid_ENSP, taxid, etype, function_an_set
 
 def _helper_get_taxid_2_total_protein_count_dict(fn_in_Taxid_2_Proteins_table_STRING):
@@ -1491,14 +1553,17 @@ def _helper_get_taxid_2_total_protein_count_dict(fn_in_Taxid_2_Proteins_table_ST
         for line in fh_in:
             # taxid, ENSP_arr_str, count = line.split("\t")
             taxid, count, ENSP_arr_str = line.split("\t")
-            taxid_2_total_protein_count_dict[taxid] = count # count is a String not an Int (since needs to be written to file)
+            count = len(count.split(","))
+            taxid_2_total_protein_count_dict[taxid] = str(count) # count is a String not an Int (since needs to be written to file)
     return taxid_2_total_protein_count_dict
 
 def _helper_get_function_2_funcEnum_dict__and__function_2_etype_dict(fn_in_Functions_table):
     function_2_funcEnum_dict, function_2_etype_dict = {}, {}
     with open(fn_in_Functions_table, "r") as fh_in:
         for line in fh_in:
+            #print(line)
             enum, etype, an, description, year, hier_nr = line.split("\t")
+            an = an.replace(" ", "")
             function_2_funcEnum_dict[an] = enum
             function_2_etype_dict[an] = etype
     return function_2_funcEnum_dict, function_2_etype_dict
@@ -1513,7 +1578,7 @@ def reduce_Protein_2_Function_table(fn_in_protein_2_function, fn_in_function_2_e
         for line in fh_in:
             line_split = line.strip().split("\t")
             assoc = line_split[2]
-            ENSP = line_split[-1][2:-2]
+            ENSP = line_split[-1]#[2:-2]
             assert len(assoc.split(";")) == 1
             if ENSP not in ENSP_2_assocSet_dict:
                 ENSP_2_assocSet_dict[ENSP] = {assoc}
@@ -1562,7 +1627,7 @@ def reduce_Protein_2_Function_table(fn_in_protein_2_function, fn_in_function_2_e
                             fh_out_rest.write(ENSP + "\t" + format_list_of_string_2_comma_separated(assoc_rest) + "\t" + etype + "\n")
     print("finished with reduce_Protein_2_Function_by_subtracting_Function_2_ENSP_rest")
 
-def AFC_KS_enrichment_terms_flat_files(functions_table, protein_shorthands, KEGG_TaxID_2_acronym_table, Function_2_ENSP_table_STRING, GO_basic_obo, UPK_obo, RCTM_hierarchy, interpro_parent_2_child_tree, tree_STRING_clusters, global_enrichment_data_current_tar_gz, populate_classification_schema_current_sql_gz):
+def AFC_KS_enrichment_terms_flat_files(functions_table, protein_shorthands, KEGG_TaxID_2_acronym_table, Function_2_ENSP_table_STRING, GO_obo_Jensenlab, GO_basic_obo, UPK_obo, RCTM_hierarchy, interpro_parent_2_child_tree, tree_STRING_clusters, DOID_obo_Jensenlab, BTO_obo_Jensenlab,  global_enrichment_data_current_tar_gz, populate_classification_schema_current_sql_gz):
     print("creating AFC_KS files")
     global_enrichment_data_DIR = variables.tables_dict["global_enrichment_data_DIR"]
     year_arr, hierlevel_arr, entitytype_arr, functionalterm_arr, indices_arr, description_arr, category_arr = get_lookup_arrays(functions_table, low_memory=False)
@@ -1581,7 +1646,7 @@ def AFC_KS_enrichment_terms_flat_files(functions_table, protein_shorthands, KEGG
             acronym = acronym.strip()
             taxid_2_acronym_dict[taxid] = acronym
 
-    parent_2_child_dict = get_parent_2_direct_children_dict(GO_basic_obo, UPK_obo, RCTM_hierarchy, interpro_parent_2_child_tree, tree_STRING_clusters)
+    parent_2_child_dict = get_parent_2_direct_children_dict(GO_obo_Jensenlab, GO_basic_obo, UPK_obo, RCTM_hierarchy, interpro_parent_2_child_tree, tree_STRING_clusters, DOID_obo_Jensenlab, BTO_obo_Jensenlab)
     parent_2_child_dict_ENUM, term_without_enum_list = {}, []
     for parent, child_list in parent_2_child_dict.items():
         try:
@@ -1785,6 +1850,78 @@ def AFC_KS_enrichment_terms_flat_files(functions_table, protein_shorthands, KEGG
     # os.remove(fn_out_sql_temp)
     print("finished AFC KS global enrichment  :)")
 
+def AFC_KS_enrichment_terms_flat_files_v0(fn_in_Protein_shorthands, fn_in_Functions_table_STRING_reduced, fn_in_Function_2_ENSP_table_STRING_reduced, KEGG_TaxID_2_acronym_table, fn_GO_obo_Jensenlab, fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_interpro_parent_2_child_tree, fn_tree_STRING_clusters, fn_DOID_obo_Jensenlab, fn_BTO_obo_Jensenlab, fn_out_AFC_KS_DIR, verbose=True):
+    parent_2_direct_children_dict = get_parent_2_direct_children_dict(fn_GO_obo_Jensenlab, fn_go_basic_obo, fn_keywords_obo, fn_rctm_hierarchy, fn_in_interpro_parent_2_child_tree, fn_tree_STRING_clusters, fn_DOID_obo_Jensenlab, fn_BTO_obo_Jensenlab)
+
+    print("AFC_KS_enrichment_terms_flat_files start")
+    ENSP_2_internalID_dict = {}
+    with open(fn_in_Protein_shorthands, "r") as fh:
+        for line in fh:
+            ENSP, internalID = line.split()
+            internalID = internalID.strip()
+            ENSP_2_internalID_dict[ENSP] = internalID
+
+    association_2_description_dict = {}
+    with open(fn_in_Functions_table_STRING_reduced, "r") as fh:
+        for line in fh:
+            enum, etype, an, description, year, level = line.split("\t")
+            association_2_description_dict[an] = description
+
+    taxid_2_acronym_dict = {}
+    with open(KEGG_TaxID_2_acronym_table, "r") as fh:
+        for line in fh:
+            taxid, acronym = line.split("\t")
+            acronym = acronym.strip()
+            taxid_2_acronym_dict[taxid] = acronym
+    fn_out_prefix = os.path.join(fn_out_AFC_KS_DIR + "/{}_AFC_KS_all_terms.tsv")
+    with open(fn_in_Function_2_ENSP_table_STRING_reduced, "r") as fh_in:
+        taxid_last, etype, association, background_count, background_n, an_array = fh_in.readline().split()
+        fn_out = fn_out_prefix.format(taxid_last)
+        fn_out_lineage = fn_out.replace(".tsv", "_lineage.tsv")
+        if not os.path.exists(fn_out_AFC_KS_DIR):
+            os.makedirs(fn_out_AFC_KS_DIR)
+        fh_out = open(fn_out, "w")
+        fh_out_lineage = open(fn_out_lineage, "w")
+        fh_in.seek(0)
+        for line in fh_in:
+            taxid, etype, association, background_count, background_n, an_array = line.split()
+            an_array_list = an_array.split(",")
+            an_array = []
+            for an in an_array_list:
+                an_array.append(an)
+            an_array = "{" + str(sorted(set(an_array)))[1:-1].replace(" ", "").replace("'", '"') + "}"
+            an_array = literal_eval(an_array)
+            try:
+                description = association_2_description_dict[association]
+            except KeyError: # since removed due to e.g. blacklisting
+                continue
+            number_of_ENSPs = str(len(an_array))
+            array_of_ENSPs_with_internal_IDS = " ".join(sorted(map_ENSPs_2_internalIDs(an_array, ENSP_2_internalID_dict)))
+            if taxid != taxid_last:
+                fh_out.close()
+                fh_out_lineage.close()
+                fn_out = fn_out_prefix.format(taxid)
+                fn_out_lineage = fn_out.replace(".tsv", "_lineage.tsv")
+                fh_out = open(fn_out, "w")
+                fh_out_lineage = open(fn_out_lineage, "w")
+            if etype == "-52": # KEGG
+                try:
+                    acronym = taxid_2_acronym_dict[taxid]
+                except KeyError:
+                    # print("no KEGG acronym translation for TaxID: {}".format(taxid))
+                    acronym = "map"
+                association = association.replace("map", acronym)
+            fh_out.write(association + "\t" + etype + "\t" + description + "\t" + number_of_ENSPs + "\t" + array_of_ENSPs_with_internal_IDS + "\n")
+            taxid_last = taxid
+            try:
+                children_list = parent_2_direct_children_dict[association]
+            except KeyError:
+                continue
+            fh_out_lineage.write(association + "\t" + "\t".join(children_list) + "\n")
+        fh_out.close()
+        fh_out_lineage.close()
+    print("AFC_KS_enrichment_terms_flat_files done :)")
+
 def map_ENSPs_2_internalIDs(ENSPs, ENSP_2_internalID_dict):
     list_2_return = []
     for ENSP in ENSPs:
@@ -1792,7 +1929,8 @@ def map_ENSPs_2_internalIDs(ENSPs, ENSP_2_internalID_dict):
             internalID = ENSP_2_internalID_dict[ENSP]
             list_2_return.append(internalID)
         except KeyError:
-            print("{} # no internal ID found".format(ENSP))
+            pass
+            #print("{} # no internal ID found".format(ENSP))
     return list_2_return
 
 def Functions_table_PMID_cleanup(Functions_table_PMID_all, max_len_description, Functions_table_PMID):
@@ -2008,13 +2146,511 @@ def Protein_2_Function__and__Functions_table_WikiPathways_STS(fn_in_WikiPathways
                                     ENSP_2_wiki_dict[ENSP].append(WikiPathwayID)
                     for ENSP, wiki_list in ENSP_2_wiki_dict.items():
                         func_array = ",".join(sorted(set(wiki_list)))
-                        fh_out_protein_2_function.write(str(taxid) + "\t" + ENSP + "\t" + func_array + "\t" + etype + "\n")
+                        fh_out_protein_2_function.write( ENSP + "\t" + "{" + func_array + "}" + "\t" + etype + "\n")  # str(taxid) + "\t" +
 
 if __name__ == "__main__":
     pass
 
+def Functions_table_RCTM(fn_in_descriptions, fn_in_hierarchy, fn_out_Functions_table_RCTM, all_terms=None):
+    """
+    entity_type = "-57"
+    :param fn_in_descriptions: String (RCTM_descriptions.tsv)
+    :param fn_in_hierarchy: String
+    :param fn_out_Functions_table_RCTM: String (Function_table_RCTM.txt)
+    :param all_terms: Set of String (with all RCTM terms that have any association with the given ENSPs)
+    :return: Tuple (List of terms with hierarchy, Set of terms without hierarchy)
+    do a sanity check: are terms without a hierarchy used in protein_2_function
+    create file Functions_table_Reactome.txt
+    etype, term, name, definition, description # old
+    | enum | etype | an | description | year | level | # new
+    """
+    child_2_parent_dict = get_child_2_direct_parent_dict_RCTM(fn_in_hierarchy)  # child_2_parent_dict --> child 2 direct parents
+    term_2_level_dict = get_term_2_level_dict(child_2_parent_dict)
+    entity_type = variables.id_2_entityTypeNumber_dict["Reactome"]
+    year = "-1"
+    terms_with_hierarchy, terms_without_hierarchy = [], []
+    with open(fn_in_descriptions, "r") as fh_in:
+        with open(fn_out_Functions_table_RCTM, "w") as fh_out:
+            for line in fh_in:
+                term, description, taxname = line.split("\t")
+                if term.startswith("R-"):  # R-ATH-109581 --> ATH-109581
+                    term = term[2:]
+                description = description.strip()
+                try:
+                    level = term_2_level_dict[term]
+                    terms_with_hierarchy.append(term)
+                except KeyError:
+                    terms_without_hierarchy.append(term)
+                    level = "-1"
+                if all_terms is None:
+                    fh_out.write(entity_type + "\t" + term + "\t" + description + "\t" + year + "\t" + str(level) + "\n")
+                else:
+                    if term in all_terms:  # filter relevant terms that occur in protein_2_functions_tables_RCTM.txt
+                        fh_out.write(entity_type + "\t" + term + "\t" + description + "\t" + year + "\t" + str(level) + "\n")
+    return sorted(set(terms_with_hierarchy)), sorted(set(terms_without_hierarchy))
+
+def Functions_table_DOID_BTO_GOCC(Function_2_Description_DOID_BTO_GO_down, BTO_obo_Jensenlab, DOID_obo_Jensenlab, GO_obo_Jensenlab, Blacklisted_terms_Jensenlab, Functions_table_DOID_BTO_GOCC, GO_CC_textmining_additional_etype=True, number_of_processes=4, verbose=True):
+    """
+    - add hierarchical level, year placeholder
+    - merge with Functions_table
+    | enum | etype | an | description | year | level |
+    """
+    # get term 2 hierarchical level
+    bto_dag = obo_parser.GODag(obo_file=BTO_obo_Jensenlab)
+    child_2_parent_dict = get_child_2_direct_parent_dict_from_dag(bto_dag)  # obsolete or top level terms have empty set for parents
+    term_2_level_dict_bto = get_term_2_level_dict(child_2_parent_dict)
+    doid_dag = obo_parser.GODag(obo_file=DOID_obo_Jensenlab)
+    child_2_parent_dict = get_child_2_direct_parent_dict_from_dag(doid_dag)  # obsolete or top level terms have empty set for parents
+    term_2_level_dict_doid = get_term_2_level_dict(child_2_parent_dict)
+
+    gocc_dag = obo_parser.GODag(obo_file=GO_obo_Jensenlab)
+    child_2_parent_dict = get_child_2_direct_parent_dict_from_dag(gocc_dag)  # obsolete or top level terms have empty set for parents
+    term_2_level_dict_gocc_temp = get_term_2_level_dict(child_2_parent_dict)
+    term_2_level_dict_gocc = {}
+    # convert "GO:" to "GOCC:"
+    for term, level in term_2_level_dict_gocc_temp.items():
+        term = term.replace("GO:", "GOCC:")
+        term_2_level_dict_gocc[term] = level
+
+    term_2_level_dict = {}
+    term_2_level_dict.update(term_2_level_dict_doid)
+    term_2_level_dict.update(term_2_level_dict_bto)
+    term_2_level_dict.update(term_2_level_dict_gocc)
+    # get blacklisted terms to exclude them
+    blacklisted_ans = []
+    with open(Blacklisted_terms_Jensenlab, "r") as fh:
+        for line in fh:
+            etype, an = line.split("\t")
+            # don't include Lars' blacklisted GO terms
+            # Lars' blacklist is for a subcellular localization resource, so telling that the protein is part of complex X is not
+            # really the information that you are after. But for the enrichment, the situation is different.
+            if etype != "-22":
+                blacklisted_ans.append(an.strip())
+    blacklisted_ans = set(blacklisted_ans)
+    blacklisted_ans.update(variables.blacklisted_terms) # exclude top level terms, and manually curated
+
+    year = "-1" # placeholder
+    with open(Functions_table_DOID_BTO_GOCC, "w") as fh_out:
+        for line in tools.yield_line_uncompressed_or_gz_file(Function_2_Description_DOID_BTO_GO_down):
+            etype, function_an, description = line.split("\t")
+            if GO_CC_textmining_additional_etype:
+                if etype == "-22":
+                    etype = "-20"
+                    function_an = function_an.replace("GO:", "GOCC:")
+            description = description.strip()
+            if function_an in blacklisted_ans:
+                continue
+            try:
+                level = term_2_level_dict[function_an] # level is an integer
+            except KeyError:
+                level = -1
+            fh_out.write(etype + "\t" + function_an + "\t" + description + "\t" + year + "\t" + str(level) + "\n")
+
+    # remove redundant terms, keep those with "better" descriptions (not simply GO-ID as description e.g.
+    # -22     GO:0000793      Condensed chromosome
+    # -22     GO:0000793      GO:0000793
+    # sort it
+    # remove redundant terms
+    # overwrite redundant file with cleaned up version
+    tools.sort_file(Functions_table_DOID_BTO_GOCC, Functions_table_DOID_BTO_GOCC, number_of_processes=number_of_processes, verbose=verbose)
+    func_redundancy_dict = {}
+    Functions_table_DOID_BTO_GOCC_temp = Functions_table_DOID_BTO_GOCC + "_temp"
+    with open(Functions_table_DOID_BTO_GOCC_temp, "w") as fh_out:
+        with open(Functions_table_DOID_BTO_GOCC, "r") as fh_in:
+            line = next(fh_in)
+            etype_last, function_last, description_last, year_last, hier_last = line.split("\t")
+            func_redundancy_dict[function_last] = line
+            for line in fh_in:
+                etype, function, description, year, hier = line.split("\t")
+                if function in func_redundancy_dict:
+                    # take every description, but overwrite existing only if function_id is not equal to description
+                    if function.replace("GOCC:", "GO:").strip().lower() != description.strip().lower():
+                        func_redundancy_dict[function] = line
+                else:
+                    func_redundancy_dict[function] = line
+        for line in sorted(func_redundancy_dict.values()):
+            fh_out.write(line)
+    os.rename(Functions_table_DOID_BTO_GOCC_temp, Functions_table_DOID_BTO_GOCC)
+
+def Protein_2_Function_DOID_BTO_GOCC_UPS(GO_obo_Jensenlab, GO_obo, DOID_obo_current, BTO_obo_Jensenlab, Taxid_UniProtID_2_ENSPs_2_KEGGs,
+        Protein_2_Function_and_Score_DOID_BTO_GOCC_STS,
+        Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked,
+        Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked_rescaled,
+        Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized,
+        Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized_backtracked,
+        Protein_2_Function_DOID_BTO_GOCC_UPS,
+        DOID_BTO_GOCC_without_lineage,
+        GO_CC_textmining_additional_etype=True,
+        minimum_score = 1.5,
+        alpha_22=0.5, beta_22=3, alpha_25=0.5, beta_25=3, alpha_26=0.5, beta_26=3):
+    """
+    discretize TextMining scores
+    - reformat data --> DF
+    - discretize scores
+    - backtrack
+    - translate ENSP to UniProtID (ignore things that can't be translated)
+    ( - map Function to FuncEnum elsewhere )
+    GO_obo_Jensenlab = os.path.join(DOWNLOADS_DIR, "go_Jensenlab.obo")
+    DOID_obo_current = os.path.join(DOWNLOADS_DIR, "DOID_obo_current.obo") # http://purl.obolibrary.org/obo/doid.obo
+    BTO_obo_Jensenlab = os.path.join(DOWNLOADS_DIR, "bto_Jensenlab.obo")  # static file
+    Taxid_UniProtID_2_ENSPs_2_KEGGs = os.path.join(TABLES_DIR, "Taxid_UniProtID_2_ENSPs_2_KEGGs.txt")
+    Protein_2_Function_and_Score_DOID_BTO_GOCC_STS = os.path.join(DOWNLOADS_DIR, "Protein_2_Function_and_Score_DOID_BTO_GOCC_STS.txt.gz")
+    Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked = os.path.join(TABLES_DIR, "Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked.txt")
+    Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized = os.path.join(TABLES_DIR, "Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized.txt")
+    Protein_2_Function_DOID_BTO_GOCC_UPS = os.path.join(TABLES_DIR, "Protein_2_Function_DOID_BTO_GOCC_UPS.txt")
+    alpha = 0.5
+    max_score = 5
+    """
+    ### reformat data --> DF
+    with open(Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked, "w") as fh_out:
+        for line in tools.yield_line_uncompressed_or_gz_file(Protein_2_Function_and_Score_DOID_BTO_GOCC_STS):
+            ENSP, funcName_2_score_arr_str, etype = line.split("\t")
+            etype = etype.strip()
+            taxid = ENSP.split(".")[0]
+            funcName_2_score_list_temp = helper_convert_str_arr_2_nested_list(funcName_2_score_arr_str)
+            for funcName, score in funcName_2_score_list_temp:
+                fh_out.write("{}\t{}\t{}\t{}\t{}\n".format(taxid, etype, ENSP, funcName, score))
+    df = pd.read_csv(Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked, sep='\t', names=["Taxid", "Etype", "ENSP", "funcName", "Score"])
+    ### backtracking
+    alternative_2_current_ID_dict = {}
+    alternative_2_current_ID_dict.update(get_alternative_2_current_ID_dict(GO_obo_Jensenlab, upk=False))
+    alternative_2_current_ID_dict.update(get_alternative_2_current_ID_dict(GO_obo, upk=False))
+    # GOCC not needed yet, lineage_dict has GOCC terms but output file has normal GO terms, conversion happens at second backtracking step
+    alternative_2_current_ID_dict.update(get_alternative_2_current_ID_dict(BTO_obo_Jensenlab, upk=True))
+    alternative_2_current_ID_dict.update(get_alternative_2_current_ID_dict(DOID_obo_current, upk=True))
+    # translate from alternative/alias to main name (synonym or obsolete funcName to current name)
+    df["funcName"] = df["funcName"].apply(lambda x: alternative_2_current_ID_dict.get(x, x))
+    # in case of redundant function 2 ENSP associations (with different scores) --> pick max score, drop rest
+    df = df.loc[df.groupby(["Taxid", "Etype", "funcName", "ENSP"])["Score"].idxmax()]
+
+    DAG = obo_parser.GODag(obo_file=GO_obo_Jensenlab, upk=False)
+    DAG.load_obo_file(obo_file=DOID_obo_current, upk=True)
+    DAG.load_obo_file(obo_file=BTO_obo_Jensenlab, upk=True)
+    # GO_CC_textmining_additional_etype should always be False here --> replaces "GO" with "GOCC". Not necessary yet since, all terms still -22 not -20.
+    lineage_dict_direct_parents = get_lineage_dict_for_DOID_BTO_GO(GO_obo_Jensenlab, DOID_obo_current, BTO_obo_Jensenlab, GO_CC_textmining_additional_etype=False, direct_parents_only=True)
+    # backtracking with smart logic to propagate scores
+    backtrack_TM_scores(df, lineage_dict_direct_parents, Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked)
+
+    ### rescale Score per genome, per etype
+    df = pd.read_csv(Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked, sep="\t")
+    df_22 = df[df["Etype"] == -22] # Lars' etype is -22, David changes it to -20 (GOCC TextMining to distinguish it from GOCC)
+    df_25 = df[df["Etype"] == -25]
+    df_26 = df[df["Etype"] == -26]
+    df_22 = rescale_scores(df_22, alpha=alpha_22)
+    df_25 = rescale_scores(df_25, alpha=alpha_25)
+    df_26 = rescale_scores(df_26, alpha=alpha_26)
+    df = pd.concat([df_22, df_25, df_26])
+    df.to_csv(Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked_rescaled, sep="\t", header=True, index=False)
+
+    ### rescaled, backtracked, and filtered
+    df = df[df["Score"] >= minimum_score]
+    df_22 = df[df["Etype"] == -22]
+    df_25 = df[df["Etype"] == -25]
+    df_26 = df[df["Etype"] == -26]
+    df_22 = df_22[df_22["Rescaled_score"] <= beta_22]
+    df_25 = df_25[df_25["Rescaled_score"] <= beta_25]
+    df_26 = df_26[df_26["Rescaled_score"] <= beta_26]
+    df = pd.concat([df_22, df_25, df_26])
+    df = df[["Taxid", "Etype", "ENSP", "funcName"]]
+    df.to_csv(Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized, sep='\t', header=True, index=False)
+
+    # backtrack a second time, simple backtracking this time, since already discretized
+    # GOCC is etype -22, is changed to -20 at this point. GO_CC_textmining_additional_etype should be True (since GO is changed to GOCC before backtracking)
+    lineage_dict_all_parents = get_lineage_dict_for_DOID_BTO_GO(GO_obo_Jensenlab, DOID_obo_current, BTO_obo_Jensenlab, GO_CC_textmining_additional_etype=True, direct_parents_only=False)
+    DAG.load_obo_file(obo_file=GO_obo, upk=False)
+    secondary_2_primaryTerm_dict, obsolete_terms_set = get_secondary_2_primaryTerm_dict_and_obsolete_terms_set(DAG)
+    ENSP_2_UniProtID_dict = get_ENSP_2_UniProtID_dict(Taxid_UniProtID_2_ENSPs_2_KEGGs)
+    backtrack_funcNames(df, lineage_dict_all_parents, secondary_2_primaryTerm_dict, obsolete_terms_set, ENSP_2_UniProtID_dict, Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized_backtracked, Protein_2_Function_DOID_BTO_GOCC_UPS, DOID_BTO_GOCC_without_lineage, GO_CC_textmining_additional_etype=GO_CC_textmining_additional_etype)
+
+def get_secondary_2_primaryTerm_dict_and_obsolete_terms_set(DAG):
+    """
+    secondary terms consist of obsolete and alternative terms
+    primary terms are term.id and 'consider'
+    DOWNLOADS_DIR = r"/scratch/dblyon/agotool/data/PostgreSQL/downloads"
+    GO_basic_obo = os.path.join(DOWNLOADS_DIR, "go-basic.obo")
+    UPK_obo = os.path.join(DOWNLOADS_DIR, "keywords-all.obo")
+    GO_obo_Jensenlab = os.path.join(DOWNLOADS_DIR, "go_Jensenlab.obo")
+    DOID_obo_Jensenlab = os.path.join(DOWNLOADS_DIR, "doid_Jensenlab.obo")
+    BTO_obo_Jensenlab = os.path.join(DOWNLOADS_DIR, "bto_Jensenlab.obo") # static file
+    DOID_obo_current = os.path.join(DOWNLOADS_DIR, "DOID_obo_current.obo")
+    DAG = obo_parser.GODag(obo_file=GO_basic_obo, upk=False)
+    DAG.load_obo_file(obo_file=UPK_obo, upk=True)
+    DAG.load_obo_file(obo_file=DOID_obo_current, upk=True)
+    DAG.load_obo_file(obo_file=BTO_obo_Jensenlab, upk=True)
+    secondary_2_primaryTerm_dict, obsolete_terms_set = get_secondary_2_primaryTerm_dict_and_obsolete_terms_set(DAG)
+    """
+    secondary_2_primaryTerm_dict, obsolete_terms_set = {}, set()
+    for term in DAG:
+        if DAG[term].is_obsolete:
+            obsolete_terms_set |= {term}
+        term_id = DAG[term].id
+        if term_id != term:
+            secondary_2_primaryTerm_dict[term] = term_id
+            term = term_id
+        for alternative in DAG[term].alt_ids:
+            if alternative not in secondary_2_primaryTerm_dict:
+                secondary_2_primaryTerm_dict[alternative] = term
+        consider_list = DAG[term].consider
+        if len(consider_list) > 0:
+            consider_ = consider_list[0]
+            if consider_ not in secondary_2_primaryTerm_dict:
+                secondary_2_primaryTerm_dict[term] = consider_
+    return secondary_2_primaryTerm_dict, obsolete_terms_set
+
+
+def backtrack_funcNames(df, lineage_dict_all_parents, secondary_2_primaryTerm_dict, obsolete_terms_set, ENSP_2_UniProtID_dict, Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized_backtracked, Protein_2_Function_DOID_BTO_GOCC_UPS, DOID_BTO_GOCC_without_lineage, GO_CC_textmining_additional_etype=True):
+    """
+    df with ["Taxid", "Etype", "ENSP", "funcName"]
+    """
+    if GO_CC_textmining_additional_etype:
+        df["Etype"] = df["Etype"].astype(int)
+        cond_GOCC = df["Etype"] == -22
+        df.loc[cond_GOCC, "Etype"] = -20
+        df.loc[cond_GOCC, "funcName"] = df.loc[cond_GOCC, "funcName"].apply(lambda x: x.replace("GO:", "GOCC:"))
+
+    terms_without_lineage = set()
+    with open(Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized_backtracked, "w") as fh_out_ENSP:
+        with open(Protein_2_Function_DOID_BTO_GOCC_UPS, "w") as fh_out_UniProtID:
+            fh_out_ENSP.write("Taxid\tEtype\tENSP\tfuncName\n")
+            for taxid_etype_ENSP, group in df.groupby(["Taxid", "Etype", "ENSP"]):
+                taxid, etype, ENSP = taxid_etype_ENSP
+                UniProtID_list = ENSP_2_UniProtID_dict[ENSP]  # defaultdict
+                funcName_list_backtracked = set(group.funcName.values)
+                for funcName in group.funcName.values:
+                    funcName, has_changed, is_obsolete = replace_obsolete_term_or_False(funcName, obsolete_terms_set, secondary_2_primaryTerm_dict)
+                    if is_obsolete:
+                        continue
+                    try:
+                        funcName_list_backtracked |= lineage_dict_all_parents[funcName]
+                    except KeyError:
+                        terms_without_lineage |= {funcName}
+                for funcName in funcName_list_backtracked:
+                    fh_out_ENSP.write("{}\t{}\t{}\t{}\n".format(taxid, etype, ENSP, funcName))
+
+                #for UniProtID in UniProtID_list:
+                fh_out_UniProtID.write("{}\t{}\t{}\n".format(ENSP, format_list_of_string_2_postgres_array(sorted(funcName_list_backtracked)), etype))
+    with open(DOID_BTO_GOCC_without_lineage, "w") as fh_without_lineage:
+        for term in sorted(terms_without_lineage):
+            fh_without_lineage.write(term + "\n")
+
+def get_ENSP_2_UniProtID_dict(Taxid_UniProtID_2_ENSPs_2_KEGGs):
+    """
+    :param Taxid_UniProtID_2_ENSPs_2_KEGGs: String (input file)
+    :return: defaultdict (key: ENSP, val: list of UniProtIDs)
+    """
+    ENSP_2_UniProtID_dict = defaultdict(lambda: [])
+    with open(Taxid_UniProtID_2_ENSPs_2_KEGGs, "r") as fh_in:
+        for line in fh_in:
+            taxid, UniProtID, ENSP, KEGG = line.split("\t")
+            if len(ENSP) > 0:
+                for ENSP in ENSP.split(";"):
+                    ENSP_2_UniProtID_dict[ENSP].append(UniProtID)
+    return ENSP_2_UniProtID_dict
+
+def rescale_scores(df, alpha=0.5, max_score=5):
+    """
+    max_score: is not beta (cutoff), it's in case scores are transformed by e.g. 1e6 from float to int
+    """
+    # df = df.sort_values(["funcName", "Score"], ascending=[True, True])
+    df = df.sort_values(["Taxid", "Etype", "funcName", "Score"], ascending=[True, True, True, True]) # discretize per genome, per etype
+    df = df.reset_index(drop=True)
+    df["Rescaled_score_orig"] = np.nan
+    df["Rescaled_score"] = np.nan
+    rescaled_score_orig_list, rescaled_score_equal_ranks_list = [], []
+    # for DOID, group in df.groupby("funcName"):
+    for taxid_etype_funcName, group in df.groupby(["Taxid", "Etype", "funcName"]):
+        rescaled_score_group, rescaled_score_equal_ranks_group = [], []
+        for score, gene_rank in zip(group.Score, list(range(1, group.shape[0] + 1))[::-1]):
+            rescaled_score_group.append(math.pow(gene_rank, alpha) * math.pow((1 - score / max_score), (1 - alpha)))
+        rescaled_score_orig_list += rescaled_score_group
+
+        ### average rescaled_scores if original confidence_scores are equal
+        sorted_Scores = group.Score.values
+        vals, idx_start, count = np.unique(sorted_Scores, return_counts=True, return_index=True)
+        start_stop_index_list = list(zip(idx_start, idx_start[1:])) + [(idx_start[-1], None)]
+        for start_stop, num_genes in zip(start_stop_index_list, count):
+            start, stop = start_stop
+            if num_genes > 1:
+                rescaled_score_equal_ranks_group += [np.median(rescaled_score_group[start:stop])] * num_genes
+            else:
+                rescaled_score_equal_ranks_group.append(rescaled_score_group[start])
+        rescaled_score_equal_ranks_list += rescaled_score_equal_ranks_group
+
+    df["Rescaled_score_orig"] = rescaled_score_orig_list
+    df["Rescaled_score"] = rescaled_score_equal_ranks_list
+    df = df.reset_index(drop=True)
+    return df
+
+def backtrack_TM_scores(df, lineage_dict_direct_parents_current, fn_out):
+    """
+    df with ENSP, DOID, and Score column
+    """
+    with open(fn_out, "w") as fh_out:
+        fh_out.write("{}\t{}\t{}\t{}\t{}\n".format("Taxid", "Etype", "ENSP", "funcName", "Score"))
+        for taxid_etype_ENSP, group in df.groupby(["Taxid", "Etype", "ENSP"]):
+            funcName_2_score_list = list(zip(group.funcName, group.Score))
+            funcName_2_score_list_backtracked_current, without_lineage_temp_current = helper_backtrack_funcName_2_score_list(funcName_2_score_list, lineage_dict_direct_parents_current, scale_by_1e6=False)
+            taxid, etype, ENSP = taxid_etype_ENSP
+            for funcName_score in funcName_2_score_list_backtracked_current:
+                funcName, score = funcName_score
+                fh_out.write("{}\t{}\t{}\t{}\t{}\n".format(taxid, etype, ENSP, funcName, score))
+
+def helper_convert_str_arr_2_nested_list(funcName_2_score_arr_str):
+    """
+    funcName_2_score_arr_str = '{{"GO:0005777",0.535714},{"GO:0005783",0.214286},{"GO:0016021",3}}'
+    --> [['GO:0005777', 0.535714], ['GO:0005783', 0.214286], ['GO:0016021', 3.0]]
+    """
+    funcName_2_score_list = []
+    funcName_2_score_arr_str = [ele[1:] for ele in funcName_2_score_arr_str.replace('"', '').replace("'", "").split("},")]
+    if len(funcName_2_score_arr_str) == 1:
+        fs = funcName_2_score_arr_str[0][1:-2].split(",")
+        funcName_2_score_list.append([fs[0], float(fs[1])])
+    else:
+        funcName_2_score_list_temp = [funcName_2_score_arr_str[0][1:].split(",")] + [ele.split(",") for ele in funcName_2_score_arr_str[1:-1]] + [funcName_2_score_arr_str[-1][:-2].split(",")]
+        for sublist in funcName_2_score_list_temp:
+            funcName_2_score_list.append([sublist[0], float(sublist[1])])
+    return funcName_2_score_list
+
+def get_alternative_2_current_ID_dict(fn_obo, upk=False):
+    alternative_2_current_ID_dict = {}
+    for rec in obo_parser.OBOReader(fn_obo, upk=upk):
+        rec_id = rec.id
+        for alternative in rec.alt_ids:
+            alternative_2_current_ID_dict[alternative] = rec_id
+    return alternative_2_current_ID_dict
+
+def get_lineage_dict_for_DOID_BTO_GO(fn_go_basic_obo, fn_in_DOID_obo_Jensenlab, fn_in_BTO_obo_Jensenlab, GO_CC_textmining_additional_etype=False, direct_parents_only=False):
+    lineage_dict = {}
+    go_dag = obo_parser.GODag(obo_file=fn_go_basic_obo)
+    ### key=GO-term, val=set of GO-terms (parents)
+    for go_term_name in go_dag:
+        GOTerm_instance = go_dag[go_term_name]
+        if direct_parents_only:
+            lineage_dict[go_term_name] = GOTerm_instance.get_direct_parents()
+        else:
+            lineage_dict[go_term_name] = GOTerm_instance.get_all_parents()
+    if GO_CC_textmining_additional_etype:
+        for go_term_name in go_dag:
+            etype = str(get_entity_type_from_GO_term(go_term_name, go_dag))
+            if etype == "-22": # GO-CC need be changed since unique names needed
+                GOTerm_instance = go_dag[go_term_name]
+                if direct_parents_only:
+                    lineage_dict[go_term_name.replace("GO:", "GOCC:")] = {ele.replace("GO:", "GOCC:") for ele in GOTerm_instance.get_direct_parents()}
+                else:
+                    lineage_dict[go_term_name.replace("GO:", "GOCC:")] = {ele.replace("GO:", "GOCC:") for ele in GOTerm_instance.get_all_parents()}
+    bto_dag = obo_parser.GODag(obo_file=fn_in_BTO_obo_Jensenlab)
+    for term_name in bto_dag:
+        Term_instance = bto_dag[term_name]
+        if direct_parents_only:
+            lineage_dict[term_name ] = Term_instance.get_direct_parents()
+        else:
+            lineage_dict[term_name ] = Term_instance.get_all_parents()
+    doid_dag = obo_parser.GODag(obo_file=fn_in_DOID_obo_Jensenlab)
+    for term_name in doid_dag:
+        Term_instance = doid_dag[term_name]
+        if direct_parents_only:
+            lineage_dict[term_name ] = Term_instance.get_direct_parents()
+        else:
+            lineage_dict[term_name ] = Term_instance.get_all_parents()
+    return lineage_dict
+
+def helper_backtrack_funcName_2_score_list(funcName_2_score_list, lineage_dict_direct_parents, scale_by_1e6=True):
+    """
+    backtrack and propage text mining scores from Jensenlab without creating redundancy
+    backtrack functions to root and propagate scores
+        - only if there is no score for that term
+        - if different scores exist for various children then
+    convert scores from float to int (by scaling 1e6 and cutting)
+    funcName_2_score_list = [['DOID:11613', 0.686827], ['DOID:1923', 0.817843], ['DOID:4', 1.982001], ['DOID:7', 1.815976]]
+    lineage_dict["DOID:11613"] = {'DOID:11613', 'DOID:1923', 'DOID:2277', 'DOID:28', 'DOID:4', 'DOID:7'}
+    funcName_2_score_list_backtracked = [['DOID:11613', 686827], ['DOID:1923', 817843], ['DOID:4', 1982001], ['DOID:7', 1815976], # previously set
+    ['DOID:28', 686827], ['DOID:2277', 686827]} # backtracked new
+    ['DOID:28', 817843], ['DOID:2277', 817843]} # backtracked new corrected
+    set score directly that stem from textmining, propagate from child to parent term(s), if term has multiple children then the average of the scores is used
+    visit all
+    """
+    funcName_2_score_dict_backtracked, without_lineage = {}, []
+    # funcName_2_score_dict_backtracked: key=String, val=Float(if unique), List of Float(if averaged)
+    # fill dict with all given values, these should be unique (funcName has only single value)
+    for funcName_2_score in funcName_2_score_list:
+        funcName, score = funcName_2_score
+        if funcName not in funcName_2_score_dict_backtracked:
+            funcName_2_score_dict_backtracked[funcName] = score
+        else:
+            print("helper_backtrack_funcName_2_score_list", funcName, funcName_2_score_dict_backtracked[funcName], score, " duplicates")
+
+    # add all funcNames to iterable and extend with all parents
+    visit_plan = deque()
+    for child, score in funcName_2_score_list:
+        visit_plan.append(child)
+
+    while visit_plan:
+        funcName = visit_plan.pop()
+        try:
+            direct_parents = lineage_dict_direct_parents[funcName]
+        except KeyError:
+            without_lineage.append(funcName)
+            direct_parents = []
+        score = funcName_2_score_dict_backtracked[funcName]
+        for parent in direct_parents:
+            if parent not in funcName_2_score_dict_backtracked: # propagate score, mark as such by using a list instead of float
+                if isinstance(score, list):  # score is a list because it was propagated
+                    funcName_2_score_dict_backtracked[parent] = score
+                else:
+                    funcName_2_score_dict_backtracked[parent] = [score]
+                visit_plan.append(parent)
+            else:
+                if isinstance(funcName_2_score_dict_backtracked[parent], float):
+                    continue  # don't change the value, since it is the original value
+                elif isinstance(funcName_2_score_dict_backtracked[parent], list):  # add to it
+                    if isinstance(score, list): # score is a list because it was propagated
+                        funcName_2_score_dict_backtracked[parent] += score
+                    else: # score is a float since original TM score
+                        funcName_2_score_dict_backtracked[parent].append(score)
+                else:
+                    print("helper_backtrack_funcName_2_score_list", parent, funcName_2_score_dict_backtracked[parent], " type not known")
+                    raise StopIteration
+
+    # now calc median if multiple values exist --> deprecated --> use max
+    funcName_2_score_list_backtracked = []
+    if scale_by_1e6:
+        for funcName in funcName_2_score_dict_backtracked:
+            val = funcName_2_score_dict_backtracked[funcName]
+            if isinstance(val, float):
+                funcName_2_score_list_backtracked.append([funcName, int(val * 1e6)])
+            else:
+                # funcName_2_score_list_backtracked.append([funcName, int(median(val) * 1e6)])
+                funcName_2_score_list_backtracked.append([funcName, int(max(val) * 1e6)])
+    else:
+        for funcName in funcName_2_score_dict_backtracked:
+            val = funcName_2_score_dict_backtracked[funcName]
+            if isinstance(val, float):
+                funcName_2_score_list_backtracked.append([funcName, val])
+            else:
+                # funcName_2_score_list_backtracked.append([funcName, median(val)])
+                funcName_2_score_list_backtracked.append([funcName, max(val)])
+
+    return funcName_2_score_list_backtracked, set(without_lineage)
+
+def replace_obsolete_term_or_False(term, obsolete_terms, secondary_2_primaryTerm_dict):
+    try:
+        term_new = secondary_2_primaryTerm_dict[term]
+    except KeyError:
+        term_new = term
+
+    if term_new in obsolete_terms:
+        is_obsolete = True
+    else:
+        is_obsolete = False
+
+    if term_new == term:
+        has_changed = False
+    else:
+        has_changed = True
+    return term_new, has_changed, is_obsolete
+
 ##### RIP dead code
-# def pickle_PMID_autoupdates(Lineage_table_STRING, Taxid_2_FunctionCountArray_table_STRING, output_list):
+#def pickle_PMID_autoupdates(Lineage_table_STRING, Taxid_2_FunctionCountArray_table_STRING, output_list):
 #     assert os.path.exists(Lineage_table_STRING)
 #     assert os.path.exists(Taxid_2_FunctionCountArray_table_STRING)
 #     taxid_2_proteome_count_dict, kegg_taxid_2_acronym_dict, year_arr, hierlevel_arr, entitytype_arr, functionalterm_arr, indices_arr, description_arr, category_arr, lineage_dict_enum, blacklisted_terms_bool_arr, ENSP_2_functionEnumArray_dict, taxid_2_tuple_funcEnum_index_2_associations_counts, etype_2_minmax_funcEnum, etype_cond_dict = output_list
@@ -2037,7 +2673,7 @@ if __name__ == "__main__":
 #     pickle.dump(pqo.etype_cond_dict, open(etype_cond_dict, "wb"))
 #     print("done :)")
 
-# def get_lineage_Reactome(fn_hierarchy): #, debug=False): # deprecated
+#def get_lineage_Reactome(fn_hierarchy): #, debug=False): # deprecated
 #     lineage_dict = defaultdict(lambda: set())
 #     child_2_parent_dict = get_child_2_direct_parent_dict_RCTM(fn_hierarchy)
 #     # parent_2_children_dict = get_parent_2_child_dict_RCTM(fn_hierarchy)
@@ -2050,7 +2686,8 @@ if __name__ == "__main__":
 #             lineage_dict[child].union(parents)
 #         else:
 #             lineage_dict[child] = parents
-#     return lineage_dict
+#    return lineage_dict
+
 
 # def get_parent_2_child_dict_RCTM(fn_hierarchy): # deprecated
 #     parent_2_children_dict = {}

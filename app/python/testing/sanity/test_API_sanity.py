@@ -42,6 +42,7 @@ def test_FG_count_not_larger_than_FG_n(url_local):
     if not is_true:
         response = requests.post(url_local, params={"output_format": "tsv", "enrichment_method": "genome", "taxid": 9606, "FDR_cutoff": 1, "p_value_uncorrected": 1},
             data={"foreground": fg_string})
+        print("something",response)
         df = pd.read_csv(StringIO(response.text), sep='\t')
         assert df.shape[0] > 0
     df["FG_n"] = num_ENSPs

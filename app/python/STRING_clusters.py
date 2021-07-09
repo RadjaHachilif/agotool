@@ -10,8 +10,8 @@ etype = variables.id_2_entityTypeNumber_dict["STRING_clusters"] = "-78"
 
 
 # dirs
-DOWNLOADS_DIR = r"/mnt/mnemo5/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/downloads"
-TABLES_DIR = r"/mnt/mnemo5/dblyon/agotool_PMID_autoupdate/agotool/data/PostgreSQL/tables"
+DOWNLOADS_DIR = r"/home/rhachilif/agotool/data/PostgreSQL/downloads"
+TABLES_DIR = r"/home/rhachilif/agotool/data/PostgreSQL/tables"
 
 # input
 fn_clusters_proteins = os.path.join(DOWNLOADS_DIR, "clusters.proteins.v11.0.txt.gz")

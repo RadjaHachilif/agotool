@@ -493,7 +493,7 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
         if variables.VERBOSE:
             print("getting cond arrays")
         self.etype_2_minmax_funcEnum = self.get_etype_2_minmax_funcEnum(self.entitytype_arr, from_pickle)
-        self.etype_cond_dict = get_etype_cond_dict(self.etype_2_minmax_funcEnum, self.function_enumeration_len, from_pickle)
+        self.etype_cond_dict = get_etype_cond_dict(self.etype_2_minmax_funcEnum, self.function_enumeration_len, False)
         self.cond_etypes_with_ontology = get_cond_bool_array_of_etypes(variables.entity_types_with_ontology, self.function_enumeration_len, self.etype_cond_dict)
         self.cond_etypes_rem_foreground_ids = get_cond_bool_array_of_etypes(variables.entity_types_rem_foreground_ids, self.function_enumeration_len, self.etype_cond_dict)
 
@@ -597,7 +597,7 @@ class PersistentQueryObject_STRING(PersistentQueryObject):
         return functerm_2_level_dict
 
     @staticmethod
-    def get_lookup_arrays(low_memory, read_from_flat_files=False, from_pickle=False):
+    def get_lookup_arrays(low_memory, read_from_flat_files=True, from_pickle=False):
         """
         funcEnum_2_hierarchical_level
         simple numpy array of hierarchical levels
@@ -800,7 +800,7 @@ def get_parents_iterative(child, child_2_parent_dict):
         current_parents = new_parents
     return all_parents
 
-def get_lineage_dict_enum(as_array=False, read_from_flat_files=False, from_pickle=False):
+def get_lineage_dict_enum(as_array=False, read_from_flat_files=True, from_pickle=False):
     if from_pickle:
         with open(variables.tables_dict["lineage_dict_enum"], "rb") as fh_taxid_2_proteome_count_dict:
             lineage_dict_enum = pickle.load(fh_taxid_2_proteome_count_dict)
@@ -872,7 +872,7 @@ def get_functionEnumArray_from_proteins(protein_ans_list, dict_2_array=False):
             dict_2_return[ENSP] = np.array(list_of_funcEnums, dtype=np.dtype("uint32"))
         return dict_2_return
 
-def get_ENSP_2_functionEnumArray_dict(read_from_flat_files=False, from_pickle=False):
+def get_ENSP_2_functionEnumArray_dict(read_from_flat_files=True, from_pickle=False):
     """
     debug : ORDER BY bubu LIMIT 100 OFFSET 50;
     21.839.546 Protein_2_FunctionEnum_table_STRING.txt
@@ -937,7 +937,7 @@ def get_background_taxid_2_funcEnum_index_2_associations_old():
         taxid_2_funcEnum_index_2_associations[taxid] = funcEnum_index_2_associations
     return taxid_2_funcEnum_index_2_associations
 
-def get_background_taxid_2_funcEnum_index_2_associations(read_from_flat_files=False, from_pickle=False):
+def get_background_taxid_2_funcEnum_index_2_associations(read_from_flat_files=True, from_pickle=False):
     if from_pickle:
         with open(variables.tables_dict["taxid_2_tuple_funcEnum_index_2_associations_counts"], "rb") as fh_in:
             taxid_2_tuple_funcEnum_index_2_associations_counts = pickle.load(fh_in)
@@ -1080,7 +1080,7 @@ def get_proteins_of_taxid(taxid):
     result = get_results_of_statement("SELECT taxid_2_protein.an_array FROM taxid_2_protein WHERE taxid_2_protein.taxid={}".format(taxid))
     return sorted(result[0][0])
 
-def get_TaxID_2_proteome_count_dict(read_from_flat_files=False, from_pickle=False):
+def get_TaxID_2_proteome_count_dict(read_from_flat_files=True, from_pickle=False):
     if from_pickle:
         with open(variables.tables_dict["taxid_2_proteome_count_dict"], "rb") as fh_taxid_2_proteome_count_dict:
             taxid_2_proteome_count_dict = pickle.load(fh_taxid_2_proteome_count_dict)
@@ -1093,6 +1093,7 @@ def get_TaxID_2_proteome_count_dict(read_from_flat_files=False, from_pickle=Fals
         result = get_results_of_statement("SELECT taxid_2_protein.taxid, taxid_2_protein.count FROM taxid_2_protein;")
     for res in result:
         taxid, count = res
+        count = len(count.split(","))
         taxid_2_proteome_count_dict[int(taxid)] = int(count)
     return taxid_2_proteome_count_dict
 

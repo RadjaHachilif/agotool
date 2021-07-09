@@ -103,6 +103,7 @@ def concatenate_files(fn_list, fn_out):
             print(fn)
             with open(fn, "r") as fh_in:
                 for line in fh_in:
+                    line = line.replace('{', '').replace('}', '').replace('\"', '').replace('\'', '')
                     fh_out.write(line)
 
 def line_numbers(fn_in):
