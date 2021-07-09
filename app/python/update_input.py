@@ -224,7 +224,7 @@ cst.Functions_table_KEGG(KEGG_pathway, Functions_table_KEGG, verbose)
 # Functions_table_DOID_BTO_GOCC # these are not being filtered to relevant ones, but since number is small (~20k), the impact should be negligible
 GO_CC_textmining_additional_etype = True
 
-cst.Functions_table_DOID_BTO_GOCC(Function_2_Description_DOID_BTO_GO_down, BTO_obo_Jensenlab, DOID_obo_Jensenlab, GO_obo_Jensenlab, Blacklisted_terms_Jensenlab, Functions_table_DOID_BTO_GOCC, GO_CC_textmining_additional_etype, threads = NUMBER_OF_PROCESSES_sorting, verbose)
+cst.Functions_table_DOID_BTO_GOCC(Function_2_Description_DOID_BTO_GO_down, BTO_obo_Jensenlab, DOID_obo_Jensenlab, GO_obo_Jensenlab, Blacklisted_terms_Jensenlab, Functions_table_DOID_BTO_GOCC, GO_CC_textmining_additional_etype, NUMBER_OF_PROCESSES_sorting, verbose)
 
 # Protein_2_Function__and__Functions_table_WikiPathways_STS
 cst.Protein_2_Function__and__Functions_table_WikiPathways_STS(WikiPathways_organisms_metadata, STRING_EntrezGeneID_2_STRING, Human_WikiPathways_gmt, Functions_table_WikiPathways, Protein_2_Function_table_WikiPathways, verbose=True)
@@ -233,7 +233,7 @@ cst.Protein_2_Function__and__Functions_table_WikiPathways_STS(WikiPathways_organ
 cst.Functions_table_PFAM(PFAM_clans, Functions_table_PFAM, map_name_2_an_PFAM)
 
 # Protein_2_Function_table_RCTM__and__Function_table_RCTM
-cst.Protein_2_Function_table_RCTM__and__Function_table_RCTM(RCTM_associations, RCTM_descriptions, RCTM_hierarchy, Protein_2_Function_table_RCTM, Functions_table_RCTM, threads = NUMBER_OF_PROCESSES_sorting)
+cst.Protein_2_Function_table_RCTM__and__Function_table_RCTM(RCTM_associations, RCTM_descriptions, RCTM_hierarchy, Protein_2_Function_table_RCTM, Functions_table_RCTM, NUMBER_OF_PROCESSES_sorting)
 
 # Functions_table_RCTM
 cst.Functions_table_RCTM(RCTM_descriptions, RCTM_hierarchy, Functions_table_RCTM)
@@ -255,26 +255,26 @@ fn_list_str = [Functions_table_InterPro,
                Functions_table_STRING_clusters,
                Functions_table_WikiPathways]
 
-cst.concatenate_Functions_tables_no_enum(fn_list_str, Functions_table_STRING_all_but_PMID, threads = NUMBER_OF_PROCESSES_sorting)
+cst.concatenate_Functions_tables_no_enum(fn_list_str, Functions_table_STRING_all_but_PMID, NUMBER_OF_PROCESSES_sorting)
 
 ###################################################################################################
 ########################   create protein to  functions tables  ###################################
 
 # Protein_2_Function_table_InterPro
 cst.string_2_interpro(uniprot_2_string, uniprot_2_interpro, string_2_interpro)
-cst.Protein_2_Function_table_InterPro(string_2_interpro, Functions_table_InterPro, interpro_parent_2_child_tree, Protein_2_Function_table_InterPro, threads = NUMBER_OF_PROCESSES_sorting, verbose=True)
+cst.Protein_2_Function_table_InterPro(string_2_interpro, Functions_table_InterPro, interpro_parent_2_child_tree, Protein_2_Function_table_InterPro, NUMBER_OF_PROCESSES_sorting, verbose=True)
 
 # Protein_2_Function_table_KEGG
-cst.Protein_2_Function_table_KEGG(kegg_benchmarking, Protein_2_Function_table_KEGG, KEGG_TaxID_2_acronym_table, threads = NUMBER_OF_PROCESSES_sorting)
+cst.Protein_2_Function_table_KEGG(kegg_benchmarking, Protein_2_Function_table_KEGG, KEGG_TaxID_2_acronym_table, NUMBER_OF_PROCESSES_sorting)
 
 # Protein_2_Function_table_SMART_and_PFAM_temp
-cst.Protein_2_Function_table_SMART_and_PFAM_temp(dom_prot_full, map_name_2_an_SMART, map_name_2_an_PFAM, Protein_2_Function_table_SMART, Protein_2_Function_table_PFAM, threads = NUMBER_OF_PROCESSES_sorting, verbose=True)
+cst.Protein_2_Function_table_SMART_and_PFAM_temp(dom_prot_full, map_name_2_an_SMART, map_name_2_an_PFAM, Protein_2_Function_table_SMART, Protein_2_Function_table_PFAM, NUMBER_OF_PROCESSES_sorting, verbose=True)
 
 # Protein_2_Function_table_GO
-cst.Protein_2_Function_table_GO(GO_obo, knowledge, Protein_2_Function_table_GO, threads = NUMBER_OF_PROCESSES_sorting, verbose=True)
+cst.Protein_2_Function_table_GO(GO_obo, knowledge, Protein_2_Function_table_GO, NUMBER_OF_PROCESSES_sorting, verbose=True)
 
 # Protein_2_Function_table_UniProtKeyword
-cst.Protein_2_Function_table_UniProtKeyword(Functions_table_UPK, GO_obo, uniprot_SwissProt_dat, uniprot_TrEMBL_dat, uniprot_2_string, Protein_2_Function_table_UPK, threads = NUMBER_OF_PROCESSES_sorting,  verbose=True)
+cst.Protein_2_Function_table_UniProtKeyword(Functions_table_UPK, GO_obo, uniprot_SwissProt_dat, uniprot_TrEMBL_dat, uniprot_2_string, Protein_2_Function_table_UPK, NUMBER_OF_PROCESSES_sorting,  verbose=True)
 
 # Protein_2_Function_DOID_BTO_GOCC_UPS
 minimum_score = 1.5
@@ -300,13 +300,13 @@ fn_list_str = [Protein_2_Function_DOID_BTO_GOCC_UPS,
                Protein_2_Function_table_STRING_clusters,
                Protein_2_Function_table_WikiPathways
                ]
-cst.Protein_2_Function_table_STRING(fn_list_str, Taxid_2_Proteins_table_STRING, Protein_2_Function_table_STRING_all_but_PMID, threads = NUMBER_OF_PROCESSES_sorting)
+cst.Protein_2_Function_table_STRING(fn_list_str, Taxid_2_Proteins_table_STRING, Protein_2_Function_table_STRING_all_but_PMID, NUMBER_OF_PROCESSES_sorting)
 
 
 # updating Taxid_2_Proteins_table_STRING
 fn_in_protein_shorthands = os.path.join(DOWNLOADS_DIR, "protein.shorthands.v11.txt")
 fn_out_Taxid_2_Proteins_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STS_FIN.txt")
-cst.Taxid_2_Proteins_table(fn_in_protein_shorthands, fn_out_Taxid_2_Proteins_table_STRING, threads = NUMBER_OF_PROCESSES_sorting, verbose=True)
+cst.Taxid_2_Proteins_table(fn_in_protein_shorthands, fn_out_Taxid_2_Proteins_table_STRING, NUMBER_OF_PROCESSES_sorting, verbose=True)
 
 
 
