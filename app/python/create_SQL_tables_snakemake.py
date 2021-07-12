@@ -581,8 +581,7 @@ def format_list_of_string_2_postgres_array(list_of_string):
     :param list_of_string: List of String
     :return: String
     """
-    #return "{" + str(sorted(set(list_of_string)))[1:-1].replace(" ", "").replace("'", '"') + "}"
-    return str(sorted(set(list_of_string)))[1:-1].replace(" ", "").replace("'", "") 
+    return "{" + str(sorted(set(list_of_string)))[1:-1].replace(" ", "").replace("'", '"') + "}"
 
 def format_list_of_string_2_comma_separated(list_of_string):
     return ",".join(str(ele) for ele in sorted(set(list_of_string)))
@@ -2233,17 +2232,25 @@ def Functions_table_DOID_BTO_GOCC(Function_2_Description_DOID_BTO_GO_down, BTO_o
     with open(Functions_table_DOID_BTO_GOCC, "w") as fh_out:
         for line in tools.yield_line_uncompressed_or_gz_file(Function_2_Description_DOID_BTO_GO_down):
             etype, function_an, description = line.split("\t")
+            #if function_an == "BTO:0000267":
+            #    print("\n\n\nfound\n\n\n")
             if GO_CC_textmining_additional_etype:
                 if etype == "-22":
                     etype = "-20"
                     function_an = function_an.replace("GO:", "GOCC:")
             description = description.strip()
             if function_an in blacklisted_ans:
+                if function_an == "BTO:0000267":
+                    print("\n\n\nignored\n\n\n")
                 continue
+            if function_an == "BTO:0000267":
+                print("\n\n\nnot ignored\n\n\n")
             try:
                 level = term_2_level_dict[function_an] # level is an integer
             except KeyError:
                 level = -1
+            if function_an == "BTO:0000267":
+                print("\n\n\nfound2\n\n\n")
             fh_out.write(etype + "\t" + function_an + "\t" + description + "\t" + year + "\t" + str(level) + "\n")
 
     # remove redundant terms, keep those with "better" descriptions (not simply GO-ID as description e.g.
@@ -2252,7 +2259,7 @@ def Functions_table_DOID_BTO_GOCC(Function_2_Description_DOID_BTO_GO_down, BTO_o
     # sort it
     # remove redundant terms
     # overwrite redundant file with cleaned up version
-    tools.sort_file(Functions_table_DOID_BTO_GOCC, Functions_table_DOID_BTO_GOCC, number_of_processes=number_of_processes, verbose=verbose)
+    '''tools.sort_file(Functions_table_DOID_BTO_GOCC, Functions_table_DOID_BTO_GOCC, number_of_processes=number_of_processes, verbose=verbose)
     func_redundancy_dict = {}
     Functions_table_DOID_BTO_GOCC_temp = Functions_table_DOID_BTO_GOCC + "_temp"
     with open(Functions_table_DOID_BTO_GOCC_temp, "w") as fh_out:
@@ -2270,7 +2277,7 @@ def Functions_table_DOID_BTO_GOCC(Function_2_Description_DOID_BTO_GO_down, BTO_o
                     func_redundancy_dict[function] = line
         for line in sorted(func_redundancy_dict.values()):
             fh_out.write(line)
-    os.rename(Functions_table_DOID_BTO_GOCC_temp, Functions_table_DOID_BTO_GOCC)
+    os.rename(Functions_table_DOID_BTO_GOCC_temp, Functions_table_DOID_BTO_GOCC)'''
 
 def Protein_2_Function_DOID_BTO_GOCC_UPS(GO_obo_Jensenlab, GO_obo, DOID_obo_current, BTO_obo_Jensenlab, Taxid_UniProtID_2_ENSPs_2_KEGGs,
         Protein_2_Function_and_Score_DOID_BTO_GOCC_STS,

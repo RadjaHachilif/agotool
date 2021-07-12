@@ -288,6 +288,10 @@ GO_CC_textmining_additional_etype = True
  
 cst.Protein_2_Function_DOID_BTO_GOCC_UPS(GO_obo_Jensenlab, GO_obo, DOID_obo_current, BTO_obo_Jensenlab, Taxid_UniProtID_2_ENSPs_2_KEGGs, Protein_2_Function_and_Score_DOID_BTO_GOCC_STS, Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked, Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked_rescaled, Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized, Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized_backtracked, Protein_2_Function_DOID_BTO_GOCC_UPS, DOID_BTO_GOCC_without_lineage, GO_CC_textmining_additional_etype=GO_CC_textmining_additional_etype, minimum_score=minimum_score, alpha_22=alpha_22, beta_22=beta_22, alpha_25=alpha_25, beta_25=beta_25, alpha_26=alpha_26, beta_26=beta_26)
 
+# updating Taxid_2_Proteins_table_STRING
+fn_in_protein_shorthands = os.path.join(DOWNLOADS_DIR, "protein.shorthands.v11.txt")
+cst.Taxid_2_Proteins_table(fn_in_protein_shorthands, Taxid_2_Proteins_table_STRING, NUMBER_OF_PROCESSES_sorting, verbose=True)
+
 # Protein_2_Function_table_STRING
 fn_list_str = [Protein_2_Function_DOID_BTO_GOCC_UPS,
                Protein_2_Function_table_InterPro,
@@ -302,11 +306,6 @@ fn_list_str = [Protein_2_Function_DOID_BTO_GOCC_UPS,
                ]
 cst.Protein_2_Function_table_STRING(fn_list_str, Taxid_2_Proteins_table_STRING, Protein_2_Function_table_STRING_all_but_PMID, NUMBER_OF_PROCESSES_sorting)
 
-
-# updating Taxid_2_Proteins_table_STRING
-fn_in_protein_shorthands = os.path.join(DOWNLOADS_DIR, "protein.shorthands.v11.txt")
-fn_out_Taxid_2_Proteins_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STS_FIN.txt")
-cst.Taxid_2_Proteins_table(fn_in_protein_shorthands, fn_out_Taxid_2_Proteins_table_STRING, NUMBER_OF_PROCESSES_sorting, verbose=True)
 
 
 
