@@ -1073,12 +1073,17 @@ def get_taxids():
     return all TaxIDs from taxid_2_proteins as sorted List of Integers
     :return: List of Integers
     """
-    result = get_results_of_statement("SELECT taxid_2_protein.taxid FROM taxid_2_protein;")
-    return sorted([rec[0] for rec in result])
+    #result = get_results_of_statement("SELECT taxid_2_protein.taxid FROM taxid_2_protein;")
+    #return sorted([rec[0] for rec in result])
+    result = get_results_of_statement_from_flat_file(variables.tables_dict["Taxid_2_Proteins_table_STRING"], columns=[0])
+    print(result)
+    return sorted([rec for rec in result])
 
 def get_proteins_of_taxid(taxid):
-    result = get_results_of_statement("SELECT taxid_2_protein.an_array FROM taxid_2_protein WHERE taxid_2_protein.taxid={}".format(taxid))
-    return sorted(result[0][0])
+    #result = get_results_of_statement("SELECT taxid_2_protein.an_array FROM taxid_2_protein WHERE taxid_2_protein.taxid={}".format(taxid))
+    #return sorted(result[0][0])
+    result = get_results_of_statement_from_flat_file(variables.tables_dict["Taxid_2_Proteins_table_STRING"], columns=[2])
+    return result
 
 def get_TaxID_2_proteome_count_dict(read_from_flat_files=True, from_pickle=False):
     if from_pickle:

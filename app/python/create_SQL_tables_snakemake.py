@@ -901,12 +901,16 @@ def Taxid_2_Proteins_table(fn_in_protein_shorthands, fn_out_Taxid_2_Proteins_tab
                 if TaxID == TaxID_previous:
                     ENSP_list.append(ENSP)
                 else:
+                    #if "9606" == TaxID_previous:
+                    #    print(TaxID_previous,"\n")
                     ENSPs_2_write = sorted(set(ENSP_list))
-                    fh_out.write(TaxID_previous + "\t" + str(len(ENSPs_2_write)) + "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\n")
+                    fh_out.write(TaxID_previous +  "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\t" + str(len(ENSPs_2_write)) + "\n")
+                    #fh_out.write(TaxID_previous + "\t" + str(len(ENSPs_2_write)) + "\t" + format_list_of_string_2_comma_separated(ENSPs_2_write) + "\n")
                     ENSP_list = [ENSP]
                     TaxID_previous = TaxID
             ENSPs_2_write = sorted(set(ENSP_list))
-            fh_out.write(TaxID_previous + "\t" + str(len(ENSPs_2_write)) + "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\n")
+            fh_out.write(TaxID_previous + "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\t" + str(len(ENSPs_2_write)) + "\n")
+            #fh_out.write(TaxID_previous + "\t" + str(len(ENSPs_2_write)) + "\t" + format_list_of_string_2_comma_separated(ENSPs_2_write) + "\n")
 
 def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING, Functions_table_STRING, Taxid_2_Proteins_table, fn_out_Taxid_2_FunctionCountArray_table_STRING, number_of_processes=1):
     # - sort Protein_2_FunctionEnum_table_STRING.txt
@@ -914,7 +918,7 @@ def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING,
     # - for line in Protein_2_FunctionEnum_table_STRING
     #     add counts to array until taxid_new != taxid_previous
     print("create_Taxid_2_FunctionCountArray_table_STRING")
-    tools.sort_file(Protein_2_FunctionEnum_table_STRING, Protein_2_FunctionEnum_table_STRING, number_of_processes=number_of_processes)
+    #tools.sort_file(Protein_2_FunctionEnum_table_STRING, Protein_2_FunctionEnum_table_STRING, number_of_processes=number_of_processes)
     taxid_2_total_protein_count_dict = _helper_get_taxid_2_total_protein_count_dict(Taxid_2_Proteins_table)
     num_lines = tools.line_numbers(Functions_table_STRING)
     with open(fn_out_Taxid_2_FunctionCountArray_table_STRING, "w") as fh_out:
