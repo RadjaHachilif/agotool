@@ -1098,7 +1098,7 @@ def get_TaxID_2_proteome_count_dict(read_from_flat_files=True, from_pickle=False
         result = get_results_of_statement("SELECT taxid_2_protein.taxid, taxid_2_protein.count FROM taxid_2_protein;")
     for res in result:
         taxid, count = res
-        count = len(count.split(","))
+        #count = len(count.split(","))
         taxid_2_proteome_count_dict[int(taxid)] = int(count)
     return taxid_2_proteome_count_dict
 

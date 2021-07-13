@@ -901,8 +901,6 @@ def Taxid_2_Proteins_table(fn_in_protein_shorthands, fn_out_Taxid_2_Proteins_tab
                 if TaxID == TaxID_previous:
                     ENSP_list.append(ENSP)
                 else:
-                    #if "9606" == TaxID_previous:
-                    #    print(TaxID_previous,"\n")
                     ENSPs_2_write = sorted(set(ENSP_list))
                     fh_out.write(TaxID_previous +  "\t" + format_list_of_string_2_postgres_array(ENSPs_2_write) + "\t" + str(len(ENSPs_2_write)) + "\n")
                     #fh_out.write(TaxID_previous + "\t" + str(len(ENSPs_2_write)) + "\t" + format_list_of_string_2_comma_separated(ENSPs_2_write) + "\n")
@@ -918,7 +916,7 @@ def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING,
     # - for line in Protein_2_FunctionEnum_table_STRING
     #     add counts to array until taxid_new != taxid_previous
     print("create_Taxid_2_FunctionCountArray_table_STRING")
-    #tools.sort_file(Protein_2_FunctionEnum_table_STRING, Protein_2_FunctionEnum_table_STRING, number_of_processes=number_of_processes)
+    tools.sort_file(Protein_2_FunctionEnum_table_STRING, Protein_2_FunctionEnum_table_STRING, number_of_processes=number_of_processes)
     taxid_2_total_protein_count_dict = _helper_get_taxid_2_total_protein_count_dict(Taxid_2_Proteins_table)
     num_lines = tools.line_numbers(Functions_table_STRING)
     with open(fn_out_Taxid_2_FunctionCountArray_table_STRING, "w") as fh_out:
@@ -933,6 +931,7 @@ def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING,
                 if taxid != taxid_previous:
                     index_backgroundCount_array_string = helper_format_funcEnum(funcEnum_count_background, min_count=2)
                     if not taxid_previous in taxid_2_total_protein_count_dict.keys():
+                        taxid_previous = taxid
                         continue
                     background_n = taxid_2_total_protein_count_dict[taxid_previous]
                     fh_out.write(taxid_previous + "\t" + background_n + "\t" + index_backgroundCount_array_string + "\n")
@@ -1556,7 +1555,6 @@ def _helper_get_taxid_2_total_protein_count_dict(fn_in_Taxid_2_Proteins_table_ST
         for line in fh_in:
             # taxid, ENSP_arr_str, count = line.split("\t")
             taxid, count, ENSP_arr_str = line.split("\t")
-            count = len(count.split(","))
             taxid_2_total_protein_count_dict[taxid] = str(count) # count is a String not an Int (since needs to be written to file)
     return taxid_2_total_protein_count_dict
 
@@ -2236,25 +2234,17 @@ def Functions_table_DOID_BTO_GOCC(Function_2_Description_DOID_BTO_GO_down, BTO_o
     with open(Functions_table_DOID_BTO_GOCC, "w") as fh_out:
         for line in tools.yield_line_uncompressed_or_gz_file(Function_2_Description_DOID_BTO_GO_down):
             etype, function_an, description = line.split("\t")
-            #if function_an == "BTO:0000267":
-            #    print("\n\n\nfound\n\n\n")
             if GO_CC_textmining_additional_etype:
                 if etype == "-22":
                     etype = "-20"
                     function_an = function_an.replace("GO:", "GOCC:")
             description = description.strip()
             if function_an in blacklisted_ans:
-                if function_an == "BTO:0000267":
-                    print("\n\n\nignored\n\n\n")
                 continue
-            if function_an == "BTO:0000267":
-                print("\n\n\nnot ignored\n\n\n")
             try:
                 level = term_2_level_dict[function_an] # level is an integer
             except KeyError:
                 level = -1
-            if function_an == "BTO:0000267":
-                print("\n\n\nfound2\n\n\n")
             fh_out.write(etype + "\t" + function_an + "\t" + description + "\t" + year + "\t" + str(level) + "\n")
 
     # remove redundant terms, keep those with "better" descriptions (not simply GO-ID as description e.g.

@@ -12,16 +12,21 @@ SNAKEMAKE_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/snakemake
 PYTEST_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/pytest
 TESTING_DIR=/home/rhachilif/agotool/app/python/testing/sanity
 TAR_GED_ALL_CURRENT=GED_all_current.tar
+TAR_GED_ALL_BAK=bak_GED_all_$(date +"%Y_%m_%d_%I_%M_%p").tar
 global_enrichment_data_current=global_enrichment_data_current.tar.gz
 GED_DIR=/home/rhachilif/global_enrichment_v11
 UWSGI_EXE=/home/rhachilif/anaconda3/envs/agotool/bin/uwsgi
+populate_classification_schema_current=populate_classification_schema_current.sql.gz
+TAR_CURRENT=aGOtool_PMID_pickle_current.tar.gz
+TAR_BAK=bak_aGOtool_PMID_pickle_$(date +"%Y_%m_%d_%I_%M_%p").tar.gz
+
 
 echo "--- running script cron_weekly_rhachilif_update_aGOtool_PMID.sh @ "$(date +"%Y_%m_%d_%I_%M_%p")" ---"
 
-printf "\n ### run snakemake pipeline \n"
-cd "$PYTHON_DIR" || exit
-"$SNAKEMAKE_EXE" -l | tr '\n' ' ' | xargs "$SNAKEMAKE_EXE" -j 50 -F  --rerun-incomplete
-check_exit_status
+#printf "\n ### run snakemake pipeline \n"
+#cd "$PYTHON_DIR" || exit
+#"$SNAKEMAKE_EXE" -l | tr '\n' ' ' | xargs "$SNAKEMAKE_EXE" -j 50 -F  --rerun-incomplete
+#check_exit_status
 
 
 ## decompress files
@@ -69,6 +74,22 @@ sleep 4m
 printf "\n PyTest REST API \n"
 cd "$TESTING_DIR" || exit
 "$PYTEST_EXE" test_API_sanity.py --url production
+check_exit_status
+
+#### tar and compress new files for transfer and backup
+printf "\n ### tar and compress new files for transfer and backup \n"
+cd "$TABLES_DIR" || exit
+#### create tar.gz of relevant flat files
+find . -maxdepth 1 -name "*_STS_FIN.txt" -o -name "DF_file_dimensions_log.txt" -o -name "DF_global_enrichment_file_stats_log.txt" | xargs tar --overwrite -cvzf "$TAR_CURRENT"
+check_exit_status
+rsync -av "$TAR_CURRENT" "$TAR_BAK"
+check_exit_status
+### AFC_KS file: tar and gzip current
+cd "$TABLES_DIR" || exit
+check_exit_status
+tar -cvf "$TAR_GED_ALL_CURRENT" "$global_enrichment_data_current" "$populate_classification_schema_current" "DF_global_enrichment_file_stats_log.txt"
+check_exit_status
+rsync -av "$TAR_GED_ALL_CURRENT" "$TAR_GED_ALL_BAK"
 check_exit_status
 
 ### push files to Digamma

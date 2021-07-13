@@ -248,7 +248,7 @@ tables_dict = {"taxid_2_proteome_count_dict": os.path.join(TABLES_DIR, "taxid_2_
                "Functions_table_STRING": os.path.join(TABLES_DIR, "Functions_table_STS_FIN.txt"),
                "Lineage_table_STRING": os.path.join(TABLES_DIR, "Lineage_table_STS_FIN.txt"),
                "Protein_2_FunctionEnum_table_STRING": os.path.join(TABLES_DIR, "Protein_2_FunctionEnum_table_STS_FIN.txt"),
-               "Taxid_2_FunctionCountArray_table_STRING": os.path.join(TABLES_DIR, "Taxid_2_FunctionCountArray_table_STS_FIN.txt.old"),
+               "Taxid_2_FunctionCountArray_table_STRING": os.path.join(TABLES_DIR, "Taxid_2_FunctionCountArray_table_STS_FIN.txt"),
                }
                # "Taxid_2_Proteins_table": os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_{}.txt".format(appendix)),
                # "blacklisted_enum_terms": os.path.join(TABLES_DIR, "blacklisted_enum_terms_{}.p".format(appendix)),

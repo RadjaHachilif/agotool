@@ -120,19 +120,19 @@ kegg_benchmarking = os.path.join(KEGG_dir, "kegg_benchmarking.CONN_maps_in.v11.n
 # STRING
 Functions_table_STRING_all_but_PMID = os.path.join(TABLES_DIR, "Functions_table_STRING_all_but_PMID.txt")
 Protein_2_Function_table_STRING_all_but_PMID = os.path.join(TABLES_DIR, "Protein_2_Function_table_STRING_all_but_PMID.txt")
-
+fn_in_protein_shorthands = os.path.join(DOWNLOADS_DIR, "protein.shorthands.v11.txt")
 
 # PFAM
 Functions_table_PFAM = os.path.join(TABLES_DIR, "Functions_table_PFAM.txt")
 #Functions_table_PFAM_no_mapping = os.path.join(TABLES_DIR, "Functions_table_PFAM_no_mapping.txt")       
-Protein_2_Function_table_PFAM = "/mnt/mnemo5/dblyon/agotool/data/PostgreSQL/tables/Protein_2_Function_table_PFAM.txt"  #os.path.join(TABLES_DIR, "Protein_2_Function_table_PFAM.txt")
+Protein_2_Function_table_PFAM = os.path.join(TABLES_DIR, "Protein_2_Function_table_PFAM.txt")
 PFAM_clans = os.path.join(DOWNLOADS_DIR, "Pfam-A.clans.tsv") 
 map_name_2_an_PFAM = os.path.join(TABLES_DIR, "map_name_2_an_PFAM.txt")
 URL_PFAM_clans = "ftp://ftp.ebi.ac.uk/pub/databases/Pfam/current_release/Pfam-A.clans.tsv.gz"
 
 # SMART 
 Functions_table_SMART = os.path.join(TABLES_DIR, "Functions_table_SMART.txt")
-Protein_2_Function_table_SMART ="/mnt/mnemo5/dblyon/agotool/data/PostgreSQL/tables/Protein_2_Function_table_SMART.txt" # os.path.join(TABLES_DIR, "Protein_2_Function_table_SMART.txt")
+Protein_2_Function_table_SMART = os.path.join(TABLES_DIR, "Protein_2_Function_table_SMART.txt")
 URL_descriptions = "http://smart.embl-heidelberg.de/smart/descriptions.pl"
 descriptions = os.path.join(DOWNLOADS_DIR, "descriptions.pl") 
 dom_prot_full = os.path.join(DOWNLOADS_DIR, "string11_dom_prot_full.sql")
@@ -150,7 +150,7 @@ Lineage_table_UPS_FIN = os.path.join(TABLES_DIR, "Lineage_table_STS_FIN.txt")
 Lineage_table_UPS_no_translation = os.path.join(TABLES_DIR, "Lineage_table_UPS_no_translation.txt")
 Lineage_table_UPS_hr = os.path.join(TABLES_DIR, "Lineage_table_UPS_hr.txt") # Human Readable
 
-'''
+
 ###################################################################################################
 ##################################   download resources  ##########################################
 # download_SMART_descriptions
@@ -288,11 +288,11 @@ beta_26 = 0.7
 GO_CC_textmining_additional_etype = True
  
 cst.Protein_2_Function_DOID_BTO_GOCC_UPS(GO_obo_Jensenlab, GO_obo, DOID_obo_current, BTO_obo_Jensenlab, Taxid_UniProtID_2_ENSPs_2_KEGGs, Protein_2_Function_and_Score_DOID_BTO_GOCC_STS, Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked, Protein_2_Function_and_Score_DOID_BTO_GOCC_STS_backtracked_rescaled, Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized, Protein_2_Function_DOID_BTO_GOCC_STS_backtracked_discretized_backtracked, Protein_2_Function_DOID_BTO_GOCC_UPS, DOID_BTO_GOCC_without_lineage, GO_CC_textmining_additional_etype=GO_CC_textmining_additional_etype, minimum_score=minimum_score, alpha_22=alpha_22, beta_22=beta_22, alpha_25=alpha_25, beta_25=beta_25, alpha_26=alpha_26, beta_26=beta_26)
-'''
+
 # updating Taxid_2_Proteins_table_STRING
-fn_in_protein_shorthands = os.path.join(DOWNLOADS_DIR, "protein.shorthands.v11.txt")
+
 cst.Taxid_2_Proteins_table(fn_in_protein_shorthands, Taxid_2_Proteins_table_STRING, NUMBER_OF_PROCESSES_sorting, verbose=True)
-'''
+
 # Protein_2_Function_table_STRING
 fn_list_str = [Protein_2_Function_DOID_BTO_GOCC_UPS,
                Protein_2_Function_table_InterPro,
@@ -306,7 +306,7 @@ fn_list_str = [Protein_2_Function_DOID_BTO_GOCC_UPS,
                Protein_2_Function_table_WikiPathways
                ]
 cst.Protein_2_Function_table_STRING(fn_list_str, Taxid_2_Proteins_table_STRING, Protein_2_Function_table_STRING_all_but_PMID, NUMBER_OF_PROCESSES_sorting)
-'''
+
 
 
 

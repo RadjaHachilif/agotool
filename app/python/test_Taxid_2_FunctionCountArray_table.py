@@ -7,9 +7,8 @@ PYTHON_DIR = variables.PYTHON_DIR
 
 Protein_2_FunctionEnum_table_STRING = os.path.join(TABLES_DIR, "Protein_2_FunctionEnum_table_STS_FIN.txt")
 Functions_table_STRING = os.path.join(TABLES_DIR, "Functions_table_STS_FIN.txt")
-Functions_table_STRING = os.path.join(TABLES_DIR, "Functions_table_STS_FIN.txt")
 Taxid_2_FunctionCountArray_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_FunctionCountArray_table_STS_FIN.txt")
-Taxid_2_Proteins_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STRING.txt")
+Taxid_2_Proteins_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STS_FIN.txt")
 
-cst.Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING, Functions_table_STRING, Taxid_2_Proteins_table_STRING, Taxid_2_FunctionCountArray_table_STRING, number_of_processes=20)
+cst.Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING, Functions_table_STRING, Taxid_2_Proteins_table_STRING, Taxid_2_FunctionCountArray_table_STRING, number_of_processes=30)
 
