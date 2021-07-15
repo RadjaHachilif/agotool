@@ -30,7 +30,7 @@ RCTM_hierarchy = os.path.join(DOWNLOADS_DIR, "RCTM_hierarchy.tsv")
 URL_RCTM_descriptions = r"https://reactome.org/download/current/ReactomePathways.txt" 
 RCTM_descriptions = os.path.join(DOWNLOADS_DIR, "RCTM_descriptions.tsv")
 Protein_2_Function_table_RCTM = os.path.join(TABLES_DIR, "Protein_2_Function_table_RCTM.txt")
-RCTM_associations = os.path.join(DOWNLOADS_DIR, "RCTM_associations.tsv") #/mnt/mnemo5/dblyon/agotool/data/PostgreSQL/downloads/RCTM_associations.tsv
+RCTM_associations = os.path.join(DOWNLOADS_DIR, "RCTM_associations.tsv") #/mnt/mnemo5/dblyon/agotool/data/PostgreSQL/downloads/RCTM_associations.tsv // to update
 Functions_table_RCTM = os.path.join(TABLES_DIR, "Functions_table_RCTM.txt")
 
 # DOID
@@ -141,15 +141,13 @@ map_name_2_an_SMART = os.path.join(TABLES_DIR, "map_name_2_an_SMART.txt")
 # STRING clusters
 Functions_table_STRING_clusters = os.path.join(TABLES_DIR, "Functions_table_STRING_clusters.txt")
 Protein_2_Function_table_STRING_clusters = os.path.join(TABLES_DIR, "Protein_2_Function_table_STRING_clusters.txt")
-#Taxid_2_Proteins_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STS_FIN.txt") #static
-Taxid_2_Proteins_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STRING.txt") #static
+Taxid_2_Proteins_table_STRING = os.path.join(TABLES_DIR, "Taxid_2_Proteins_table_STS_FIN.txt") #static
 
 URL_integrated_protein_2_function_Jensenlab = r"http://download.jensenlab.org/aGOtool/integrated_protein2function.tsv.gz"
 
 Lineage_table_UPS_FIN = os.path.join(TABLES_DIR, "Lineage_table_STS_FIN.txt")
 Lineage_table_UPS_no_translation = os.path.join(TABLES_DIR, "Lineage_table_UPS_no_translation.txt")
 Lineage_table_UPS_hr = os.path.join(TABLES_DIR, "Lineage_table_UPS_hr.txt") # Human Readable
-
 
 ###################################################################################################
 ##################################   download resources  ##########################################
@@ -236,8 +234,9 @@ cst.Functions_table_PFAM(PFAM_clans, Functions_table_PFAM, map_name_2_an_PFAM)
 # Protein_2_Function_table_RCTM__and__Function_table_RCTM
 cst.Protein_2_Function_table_RCTM__and__Function_table_RCTM(RCTM_associations, RCTM_descriptions, RCTM_hierarchy, Protein_2_Function_table_RCTM, Functions_table_RCTM, NUMBER_OF_PROCESSES_sorting)
 
+
 # Functions_table_RCTM
-cst.Functions_table_RCTM(RCTM_descriptions, RCTM_hierarchy, Functions_table_RCTM)
+#cst.Functions_table_RCTM(RCTM_descriptions, RCTM_hierarchy, Functions_table_RCTM)
 
 # Functions_table_SMART
 ### Parameters

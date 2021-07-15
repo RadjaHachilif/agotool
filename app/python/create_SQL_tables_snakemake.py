@@ -603,12 +603,12 @@ def Protein_2_FunctionEnum_table_STRING(fn_Functions_table_STRING, fn_in_Protein
     with open(fn_in_Protein_2_function_table_STRING, "r") as fh_in:
         with open(fn_out_Protein_2_functionEnum_table_STRING, "w") as fh_out:
             ENSP_last, function_arr_str, etype = fh_in.readline().strip().split("\t")
-            function_arr = function_arr_str.split(",")
-            functionEnum_list = _helper_format_array(function_arr_str.split(","), function_2_enum_dict)
+            function_arr = function_arr_str.replace(" ", "").split(",")
+            functionEnum_list = _helper_format_array(function_arr_str.replace(" ", "").split(","), function_2_enum_dict)
 
             for line in fh_in:
                 ENSP, function_arr_str, etype = line.strip().split("\t")
-                function_arr = function_arr_str.split(",")
+                function_arr = function_arr_str.replace(" ", "").split(",")
 
                 if ENSP == ENSP_last:
                     functionEnum_list += _helper_format_array(function_arr, function_2_enum_dict)
@@ -946,7 +946,7 @@ def Taxid_2_FunctionCountArray_table_STRING(Protein_2_FunctionEnum_table_STRING,
 
 def helper_parse_line_Protein_2_FunctionEnum_table_STRING(line):
     ENSP, funcEnum_set = line.strip().split("\t")
-    funcEnum_set = {int(num) for num in funcEnum_set.split(",")}
+    funcEnum_set = {int(num) for num in funcEnum_set.replace(" ", "").split(",")}
     taxid = ENSP.split(".")[0]
     return taxid, ENSP, funcEnum_set
 
@@ -1404,7 +1404,7 @@ def Protein_2_Function_table_STRING(fn_list, fn_in_Taxid_2_Proteins_table_STRING
     fn_list = [fn for fn in fn_list]
     ### concatenate files
     fn_out_Protein_2_Function_table_STRING_temp = fn_out_Protein_2_Function_table_STRING + "_temp"
-    fn_out_Protein_2_Function_table_STRING_rest = fn_out_Protein_2_Function_table_STRING 
+    fn_out_Protein_2_Function_table_STRING_rest = fn_out_Protein_2_Function_table_STRING + "_rest" 
     tools.concatenate_files(fn_list, fn_out_Protein_2_Function_table_STRING_temp)
     ### sort
     tools.sort_file(fn_out_Protein_2_Function_table_STRING_temp, fn_out_Protein_2_Function_table_STRING_temp, number_of_processes=number_of_processes)
@@ -1446,8 +1446,8 @@ def parse_taxid_2_proteins_get_all_ENSPs(fn_Taxid_2_Proteins_table_STRING):
     ENSP_set = set()
     with open(fn_Taxid_2_Proteins_table_STRING, "r") as fh:
         for line in fh:
-            taxid, ensp_arr , num_ensps = line.strip().split("\t")
-            ensp_list = ensp_arr.split(",")
+            taxid, num_ensps, ensp_arr  = line.strip().split("\t")
+            ensp_list = ensp_arr.replace(" ", "").split(",")
             assert int(num_ensps) == len(ensp_list)
             ENSP_set |= set(ensp_list)
     return ENSP_set
@@ -1476,6 +1476,9 @@ def Function_2_ENSP_table(fn_in_Protein_2_Function_table, fn_in_Taxid_2_Proteins
                         if not taxid in taxid_2_total_protein_count_dict.keys():
                             continue
                         if taxid != taxid_last:
+                            if not taxid_last in taxid_2_total_protein_count_dict.keys():
+                                taxid_last = taxid
+                                continue
                             num_ENSPs_total_for_taxid = taxid_2_total_protein_count_dict[taxid_last]
                             for function_an, ENSPs in function_2_ENSPs_dict.items():
                                 num_ENSPs = len(ENSPs)
@@ -1539,7 +1542,7 @@ def Functions_table_STRING_reduced(fn_in_Functions_table, fn_in_Function_2_ENSP_
                     else:
                         fh_out_removed.write("-1" + "\t" + etype + "\t" + function + "\t" + description + "\t" + year + "\t" + hier_newline)
 
-def _helper_parse_line_prot_2_func(line):
+def _helper_parse_line_prot_2_func(line):        
     taxid_ENSP, function_an_set_str, etype = line.split("\t")
     taxid = taxid_ENSP.split(".")[0]
     etype = etype.strip()
@@ -1601,7 +1604,7 @@ def reduce_Protein_2_Function_table(fn_in_protein_2_function, fn_in_function_2_e
                 for line in fh_in:
                     line_split = line.strip().split("\t")
                     ENSP = line_split[0]
-                    assoc_set = set(line_split[1].split(","))
+                    assoc_set = set(line_split[1].replace(" ", "").split(","))
                     etype = line_split[2]
                     try:
                         assoc_set_2_remove = ENSP_2_assocSet_dict[ENSP]
@@ -1727,7 +1730,7 @@ def AFC_KS_enrichment_terms_flat_files(functions_table, protein_shorthands, KEGG
             taxid = int(taxid)
             etype = int(etype)
             # ENSP_list = an_array.strip()[1:-1].replace('"', "").split(",")
-            ENSP_list = an_array.strip().split(",")
+            ENSP_list = an_array.strip().replace(" ", "").split(",")
             if term not in functionalterm_set:
                 continue
             try:
@@ -1886,7 +1889,7 @@ def AFC_KS_enrichment_terms_flat_files_v0(fn_in_Protein_shorthands, fn_in_Functi
         fh_in.seek(0)
         for line in fh_in:
             taxid, etype, association, background_count, background_n, an_array = line.split()
-            an_array_list = an_array.split(",")
+            an_array_list = an_array.replace(" ", "").split(",")
             an_array = []
             for an in an_array_list:
                 an_array.append(an)

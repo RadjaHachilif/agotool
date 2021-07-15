@@ -29,16 +29,16 @@ echo "--- running script cron_weekly_rhachilif_update_aGOtool_PMID.sh @ "$(date 
 #check_exit_status
 
 
-## decompress files
-#printf "\n ### unpacking tar.gz files \n"
-#cd "$TABLES_DIR" || exit
-#tar --overwrite -xvzf "$TABLES_DIR"/aGOtool_PMID_pickle_current.tar.gz
-#check_exit_status
-#cd "$GED_DIR" || exit
-#tar --overwrite -xvf "$TAR_GED_ALL_CURRENT"
-#check_exit_status
-#tar --overwrite -xzf "$global_enrichment_data_current"
-#check_exit_status
+### decompress files
+printf "\n ### unpacking tar.gz files \n"
+cd "$TABLES_DIR" || exit
+tar --overwrite -xvzf "$TABLES_DIR"/aGOtool_PMID_pickle_current.tar.gz
+check_exit_status
+cd "$GED_DIR" || exit
+tar --overwrite -xvf "$TAR_GED_ALL_CURRENT"
+check_exit_status
+tar --overwrite -xzf "$global_enrichment_data_current"
+check_exit_status
 
 ### test flat files
 printf "\n PyTest flat files \n"
